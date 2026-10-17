@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="嘉越成长">
+<meta name="theme-color" content="#ff9b7a">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<title>嘉越成长记</title>
+<style>
+:root{--bg:#fff7f2;--card:#fff;--pri:#ff8a65;--pri2:#ffb394;--txt:#3b2f2a;--sub:#8a7a72;--line:#f1e3da;--blue:#5b9bd5;--green:#5cb85c}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.5 -apple-system,"PingFang SC","Helvetica Neue",sans-serif;padding-bottom:calc(70px + env(safe-area-inset-bottom))}
+header{padding:calc(12px + env(safe-area-inset-top)) 16px 8px;display:flex;align-items:center;justify-content:space-between}
+header h1{font-size:20px;margin:0}
+#sync{font-size:12px;color:var(--sub)}
+main{padding:0 12px}
+.card{background:var(--card);border-radius:16px;padding:14px;margin:10px 0;box-shadow:0 1px 4px rgba(150,90,60,.08)}
+.hero{background:linear-gradient(135deg,#ffb394,#ff8a65);color:#fff}
+.hero .big{font-size:22px;font-weight:700}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.stat{flex:1;min-width:30%;background:rgba(255,255,255,.2);border-radius:10px;padding:6px 8px;font-size:13px}
+.stat b{display:block;font-size:16px}
+.qa{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.qa button{border:0;border-radius:14px;padding:12px 4px;background:#fff1ea;color:var(--txt);font-size:13px}
+.qa button span{display:block;font-size:22px}
+.qa button.on{background:#5b9bd5;color:#fff}
+h2{font-size:16px;margin:4px 0 8px}
+.sum{white-space:normal}
+.sum h1,.sum h2,.sum h3{font-size:15px;margin:8px 0 4px}
+.sum ul{padding-left:20px;margin:4px 0}
+.item{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);align-items:flex-start}
+.item:last-child{border-bottom:0}
+.ic{font-size:22px;width:30px;text-align:center}
+.item .m{flex:1}
+.item .t{font-size:12px;color:var(--sub)}
+.tag{font-size:11px;padding:1px 6px;border-radius:8px;background:#fde7dc;color:#c0603f;margin-left:4px}
+.tag.mom{background:#fde0ef;color:#c04080}.tag.dad{background:#dceafd;color:#3f6fc0}
+nav{position:fixed;bottom:0;left:0;right:0;background:#fff;display:flex;border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);z-index:5}
+nav button{flex:1;border:0;background:none;padding:8px 0;font-size:11px;color:var(--sub)}
+nav button span{display:block;font-size:20px}
+nav button.act{color:var(--pri)}
+.page{display:none}.page.act{display:block}
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px}
+.chips button{border:1px solid var(--line);background:#fff;border-radius:16px;padding:5px 12px;white-space:nowrap;font-size:13px;color:var(--txt)}
+.chips button.act{background:var(--pri);color:#fff;border-color:var(--pri)}
+.btn{border:0;border-radius:12px;padding:11px 16px;background:var(--pri);color:#fff;font-size:15px;font-weight:600}
+.btn.ghost{background:#f4ebe6;color:var(--txt)}.btn.red{background:#e57373}
+.full{width:100%}
+dialog{border:0;border-radius:18px;padding:0;width:min(94vw,440px);max-height:88vh}
+dialog::backdrop{background:rgba(60,40,30,.4)}
+.dlg{padding:16px}
+.dlg h3{margin:0 0 10px}
+label{display:block;font-size:13px;color:var(--sub);margin:8px 0 3px}
+input,select,textarea{width:100%;font-size:16px;padding:9px 10px;border:1px solid #e8d8ce;border-radius:10px;background:#fffdfb;color:var(--txt);font-family:inherit}
+textarea{min-height:60px}
+.seg{display:flex;gap:6px;flex-wrap:wrap}.seg button{flex:1;border:1px solid #e8d8ce;background:#fff;border-radius:10px;padding:8px 4px;font-size:14px;color:var(--txt)}
+.seg button.act{background:var(--pri);color:#fff;border-color:var(--pri)}
+.acts{display:flex;gap:8px;margin-top:14px}.acts .btn{flex:1}
+svg text{font-size:10px;fill:#8a7a72}
+.small{font-size:12px;color:var(--sub)}
+.vac{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed var(--line);font-size:14px}
+.vac.done{color:#999;text-decoration:line-through}.vac .due{font-size:12px;color:var(--sub)}
+.vac.late .due{color:#e05a3a;font-weight:600}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:rgba(50,40,35,.85);color:#fff;padding:8px 16px;border-radius:20px;font-size:14px;display:none;z-index:20}
+.sleepbar{background:#5b9bd5;color:#fff;border-radius:14px;padding:12px;display:none;align-items:center;justify-content:space-between}
+</style></head><body>
+<header><h1>👶 嘉越成长记</h1><div id="sync">…</div></header>
+<main>
+<section class="page act" id="p-home">
+  <div class="card hero"><div class="big">宗嘉越</div>
+    <div style="font-size:13px;opacity:.9">2026-07-04 出生 · 胎龄 32+4 周 · 出生体重 1800g</div>
+    <div class="row" style="margin-top:8px" id="ages"></div></div>
+  <div class="sleepbar" id="sleepbar"><div>😴 正在睡觉 <b id="sleepdur"></b></div><button class="btn ghost" onclick="toggleSleep()">醒了</button></div>
+  <div class="card"><div class="qa">
+    <button onclick="quickFeed('breast')"><span>🤱</span>亲喂</button>
+    <button onclick="quickFeed('bottle_bm')"><span>🍼</span>瓶喂母乳</button>
+    <button onclick="quickFeed('formula')"><span>🥛</span>配方奶</button>
+    <button id="qsleep" onclick="toggleSleep()"><span>😴</span>开始睡</button>
+    <button onclick="openForm('diaper')"><span>🧷</span>尿布</button>
+    <button onclick="openForm('growth')"><span>📏</span>身高体重</button>
+    <button onclick="openForm('solid')"><span>🥣</span>辅食</button>
+    <button onclick="openAdd()"><span>➕</span>更多</button>
+  </div></div>
+  <div class="card"><h2>📊 今日</h2><div class="row" id="today"></div></div>
+  <div class="card" id="sumcard"><h2>📝 每日小结 <span class="small" id="sumdate"></span></h2><div class="sum" id="sum"><span class="small">每天早上 8 点会生成前一天的小结</span></div></div>
+  <div class="card"><h2>最近记录</h2><div id="recent"></div></div>
+</section>
+<section class="page" id="p-list">
+  <div class="chips" id="filt"></div>
+  <div class="card"><div id="list"></div></div>
+</section>
+<section class="page" id="p-chart">
+  <div class="card">
+    <div class="chips" id="cm"></div><div class="chips" id="cs" style="margin-top:6px"></div>
+    <div id="chart"></div>
+    <div class="small" id="chartnote"></div>
+  </div>
+  <div class="card"><h2>生长记录</h2><div id="glist"></div></div>
+</section>
+<section class="page" id="p-health">
+  <div class="card"><h2>💉 疫苗（国家免疫规划参考）</h2><div class="small">按实际出生日期计算；早产儿接种时间请以社区医生意见为准（出生体重&lt;2000g 乙肝疫苗程序可能调整）。点击可记录接种。</div><div id="vaclist"></div></div>
+  <div class="card"><h2>🏥 体检 · 🌟 里程碑</h2><div id="hlist"></div>
+  <div class="acts"><button class="btn ghost" onclick="openForm('checkup')">+ 体检</button><button class="btn ghost" onclick="openForm('milestone')">+ 里程碑</button></div></div>
+</section>
+<section class="page" id="p-me">
+  <div class="card"><h2>本机身份</h2><div class="seg" id="whoseg"></div><div class="small" style="margin-top:6px">每台手机选一次。记录会标注是谁记的。</div></div>
+  <div class="card"><h2>添加到主屏幕</h2><div class="small">在 Safari 中打开本页 → 点底部「分享」按钮 → 「添加到主屏幕」。请务必用家庭链接（带 # 后面那串）打开一次，本机会记住密钥。</div></div>
+  <div class="card"><h2>同步</h2><div class="small" id="syncinfo"></div><div class="acts"><button class="btn ghost" onclick="syncNow(true)">立即同步</button></div></div>
+</section>
+</main>
+<nav>
+  <button class="act" data-p="home"><span>🏠</span>首页</button>
+  <button data-p="list"><span>📋</span>记录</button>
+  <button data-p="chart"><span>📈</span>曲线</button>
+  <button data-p="health"><span>💉</span>健康</button>
+  <button data-p="me"><span>⚙️</span>设置</button>
+</nav>
+<dialog id="dlg"><form class="dlg" id="form" onsubmit="return false"></form></dialog>
+<div class="toast" id="toast"></div>
+<script>
+"use strict";
+const BIRTH="2026-07-04",GA_DAYS=32*7+4,BW=1800;
+const RD="https://textdb.online/",WR="https://api.textdb.online/update/";
+const $=id=>document.getElementById(id);
+const pad=n=>String(n).padStart(2,"0");
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmt=d=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+"T"+pad(d.getHours())+":"+pad(d.getMinutes());
+const nowTs=()=>fmt(new Date());
+const parse=s=>new Date(s.length<=10?s+"T00:00":s);
+const dayOf=s=>s.slice(0,10);
+const daysBetween=(a,b)=>Math.round((Date.UTC(+b.slice(0,4),+b.slice(5,7)-1,+b.slice(8,10))-Date.UTC(+a.slice(0,4),+a.slice(5,7)-1,+a.slice(8,10)))/864e5);
+const uid=()=>Date.now().toString(36)+"-"+Array.from(crypto.getRandomValues(new Uint8Array(6)),b=>b.toString(16).padStart(2,"0")).join("");
+function toast(t){const e=$("toast");e.textContent=t;e.style.display="block";clearTimeout(toast.t);toast.t=setTimeout(()=>e.style.display="none",1800)}
+
+// ---- keys from hash ----
+(function(){const h=new URLSearchParams(location.hash.slice(1));if(h.get("d")&&h.get("m")&&h.get("s")){localStorage.setItem("jy_keys",JSON.stringify({d:h.get("d"),m:h.get("m"),s:h.get("s")}));history.replaceState(null,"",location.pathname)}})();
+const KEYS=JSON.parse(localStorage.getItem("jy_keys")||"null");
+let WHO=localStorage.getItem("jy_who")||"";
+const WHO_N={d:"爸爸",m:"妈妈"};
+// ---- local state ----
+let DOCS=JSON.parse(localStorage.getItem("jy_docs")||'{"d":{"records":{}},"m":{"records":{}}}');
+let PEND=JSON.parse(localStorage.getItem("jy_pend")||"{}"); // id->record pending upload to own doc
+let SUM=JSON.parse(localStorage.getItem("jy_sum")||"null");
+let lastSync=0,syncing=false,syncErr="";
+const save=()=>{localStorage.setItem("jy_docs",JSON.stringify(DOCS));localStorage.setItem("jy_pend",JSON.stringify(PEND));localStorage.setItem("jy_sum",JSON.stringify(SUM))};
+function merged(){const m={};for(const k of ["d","m"])for(const r of Object.values(DOCS[k].records||{}))if(!m[r.id]||r.updated_at>m[r.id].updated_at)m[r.id]=r;
+ for(const r of Object.values(PEND))if(!m[r.id]||r.updated_at>=m[r.id].updated_at)m[r.id]=r;
+ return Object.values(m).filter(r=>!r.deleted).sort((a,b)=>b.ts.localeCompare(a.ts))}
+const tf=(u,o={})=>fetch(u,{cache:"no-store",...o,signal:AbortSignal.timeout?AbortSignal.timeout(12000):undefined});
+async function readDoc(key){const r=await tf(RD+key+"?t="+Date.now());if(!r.ok)throw "读取失败";const t=(await r.text()).trim();if(!t)return null;try{return JSON.parse(t)}catch(e){return null}}
+async function syncNow(manual){
+ if(!KEYS||syncing)return;syncing=true;setSync("同步中…");
+ try{
+  const [d,m,s]=await Promise.all([readDoc(KEYS.d),readDoc(KEYS.m),readDoc(KEYS.s)]);
+  if(d)DOCS.d=d;if(m)DOCS.m=m;if(s)SUM=s;
+  if(WHO&&Object.keys(PEND).length){
+   const fresh=(await readDoc(KEYS[WHO]))||{v:1,author:WHO_N[WHO],records:{}};fresh.records=fresh.records||{};
+   const sent={...PEND};
+   for(const r of Object.values(sent)){const o=fresh.records[r.id];if(!o||r.updated_at>=o.updated_at)fresh.records[r.id]=r}
+   fresh.updated=new Date().toISOString();fresh.author=WHO_N[WHO];fresh.v=1;
+   const res=await tf(WR,{method:"POST",body:new URLSearchParams({key:KEYS[WHO],value:JSON.stringify(fresh)})});const j=await res.json();
+   if(j.status!==1)throw(j.error||"写入失败");
+   DOCS[WHO]=fresh;for(const id in sent)if(PEND[id]&&PEND[id].updated_at===sent[id].updated_at)delete PEND[id];
+  }
+  lastSync=Date.now();syncErr="";save();render();
+  if(manual)toast("已同步");
+ }catch(e){syncErr=String(e);if(manual)toast("同步失败，稍后自动重试")}
+ finally{syncing=false;setSync()}
+}
+function setSync(t){const p=Object.keys(PEND).length;$("sync").textContent=t||(!KEYS?"⚠️ 未配置家庭链接":syncErr?"⚠️ 离线"+(p?" · "+p+"条待上传":""):p?p+"条待上传":lastSync?"✓ 已同步 "+new Date(lastSync).toTimeString().slice(0,5):"");
+ $("syncinfo").textContent=KEYS?("家庭密钥已保存。"+(lastSync?"上次同步 "+new Date(lastSync).toLocaleTimeString():"")+(p?"，待上传 "+p+" 条":"")+(syncErr?"，错误："+syncErr:"")):"未检测到家庭密钥，请用家人发给你的完整链接打开一次。"}
+function put(rec){if(!WHO){pickWho();toast("请先选择本机是爸爸还是妈妈");return false}
+ rec.updated_at=Date.now();rec.who=rec.who||WHO_N[WHO];rec.by=WHO_N[WHO];PEND[rec.id]=rec;save();render();syncNow();return true}
+function newRec(type,data,ts,end_ts){return{id:uid(),type,ts:ts||nowTs(),end_ts:end_ts||null,data:data||{},created_at:Date.now()}}
+
+// ---- age ----
+function ages(onDay){const d=daysBetween(BIRTH,onDay),pma=GA_DAYS+d,corr=d-(280-GA_DAYS);return{d,pma,corr}}
+const wkd=n=>Math.floor(n/7)+"周"+(n%7?"+"+(n%7)+"天":"");
+function ageText(days){if(days<0)return"未到预产期（还差"+(-days)+"天）";const m=Math.floor(days/30.4375),r=Math.round(days-m*30.4375);return m?m+"个月"+(r?r+"天":""):days+"天"}
+
+// ---- labels ----
+const TN={growth:"生长",feed:"喂奶",solid:"辅食",sleep:"睡眠",diaper:"尿布",vaccine:"疫苗",checkup:"体检",milestone:"里程碑"};
+const IC={growth:"📏",feed:"🍼",solid:"🥣",sleep:"😴",diaper:"🧷",vaccine:"💉",checkup:"🏥",milestone:"🌟"};
+const FK={breast:"母乳亲喂",bottle_bm:"瓶喂母乳",formula:"配方奶"};
+const SIDE={L:"左",R:"右",B:"双侧"};
+function durMin(a,b){return Math.max(0,Math.round((parse(b)-parse(a))/6e4))}
+const hm=m=>(m>=60?Math.floor(m/60)+"小时":"")+(m%60?m%60+"分":m>=60?"":"0分");
+function desc(r){const d=r.data||{};switch(r.type){
+ case"growth":return[d.weight&&("体重 "+d.weight+"g"),d.length&&("身长 "+d.length+"cm"),d.hc&&("头围 "+d.hc+"cm")].filter(Boolean).join(" · ")+(d.note?"（"+d.note+"）":"");
+ case"feed":return FK[d.kind]+(d.kind==="breast"?(d.side?" "+SIDE[d.side]:"")+(d.minutes?" "+d.minutes+"分钟":""):(d.ml?" "+d.ml+"ml":""))+(d.note?" · "+d.note:"");
+ case"solid":return(d.food||"")+(d.amount?" "+d.amount:"")+(d.reaction?" · 反应："+d.reaction:"");
+ case"sleep":return r.end_ts?("睡了 "+hm(durMin(r.ts,r.end_ts))+"（至 "+r.end_ts.slice(11)+"）"):"正在睡…";
+ case"diaper":return({wet:"小便",dirty:"大便",both:"大小便"}[d.kind]||"")+(d.note?" · "+d.note:"");
+ case"vaccine":return(d.name||"")+(d.dose?" 第"+d.dose+"剂":"")+(d.note?" · "+d.note:"");
+ case"checkup":return(d.hospital||"")+(d.note?" · "+d.note:"");
+ case"milestone":return(d.event||"")+(d.note?" · "+d.note:"");}return""}
+function itemHtml(r){const t=r.ts.replace("T"," ");return`<div class="item" onclick="openForm('${r.type}','${r.id}')"><div class="ic">${IC[r.type]}</div><div class="m"><div>${esc(desc(r))}</div><div class="t">${t}<span class="tag ${r.who==="妈妈"?"mom":"dad"}">${esc(r.who||"")}</span></div></div></div>`}
+
+// ---- render ----
+let FILT="all";
+function render(){
+ const R=merged(),today=nowTs().slice(0,10),a=ages(today);
+ $("ages").innerHTML=`<div class="stat">实际月龄<b>${ageText(a.d)}</b>第${a.d+1}天</div><div class="stat">矫正月龄<b>${ageText(a.corr)}</b>预产期 ${addDays(BIRTH,280-GA_DAYS)}</div><div class="stat">矫正胎龄(PMA)<b>${wkd(a.pma)}</b>${a.pma<350?"用 Fenton 曲线":"用 WHO 曲线"}</div>`;
+ const T=R.filter(r=>dayOf(r.ts)===today);const feeds=T.filter(r=>r.type==="feed");
+ const ml=feeds.reduce((s,r)=>s+(+r.data.ml||0),0),bm=feeds.filter(r=>r.data.kind==="breast").reduce((s,r)=>s+(+r.data.minutes||0),0);
+ const sl=R.filter(r=>r.type==="sleep"&&r.end_ts&&dayOf(r.end_ts)===today).reduce((s,r)=>s+durMin(r.ts,r.end_ts),0);
+ const lastFeed=R.find(r=>r.type==="feed");const dp=T.filter(r=>r.type==="diaper").length;
+ $("today").innerHTML=`<div class="stat" style="background:#fff1ea">喂奶<b>${feeds.length}次</b>${ml}ml${bm?" · 亲喂"+bm+"分":""}</div><div class="stat" style="background:#eaf2fd">睡眠<b>${hm(sl)}</b>今日已醒来的</div><div class="stat" style="background:#eefaf0">上次喂奶<b>${lastFeed?ago(lastFeed.ts):"—"}</b>${dp?"尿布 "+dp+" 次":""}</div>`;
+ if(SUM&&SUM.text){$("sum").innerHTML=md(SUM.text);$("sumdate").textContent=SUM.date?"（"+SUM.date+"）":""}
+ $("recent").innerHTML=R.slice(0,8).map(itemHtml).join("")||'<div class="small">还没有记录，点上面的按钮开始吧</div>';
+ const ongoing=R.find(r=>r.type==="sleep"&&!r.end_ts);
+ $("sleepbar").style.display=ongoing?"flex":"none";$("qsleep").classList.toggle("on",!!ongoing);$("qsleep").innerHTML=ongoing?"<span>⏰</span>醒了":"<span>😴</span>开始睡";
+ if(ongoing)$("sleepdur").textContent=hm(durMin(ongoing.ts,nowTs()));
+ $("filt").innerHTML=["all",...Object.keys(TN)].map(k=>`<button class="${FILT===k?"act":""}" onclick="FILT='${k}';render()">${k==="all"?"全部":TN[k]}</button>`).join("");
+ const L=R.filter(r=>FILT==="all"||r.type===FILT);let html="",lastD="";
+ for(const r of L.slice(0,300)){const d=dayOf(r.ts);if(d!==lastD){html+=`<div class="small" style="margin-top:8px;font-weight:600">${d} · ${dayStats(R,d)}</div>`;lastD=d}html+=itemHtml(r)}
+ $("list").innerHTML=html||'<div class="small">暂无</div>';
+ $("glist").innerHTML=R.filter(r=>r.type==="growth").map(itemHtml).join("");
+ $("hlist").innerHTML=R.filter(r=>r.type==="checkup"||r.type==="milestone").map(itemHtml).join("")||'<div class="small">暂无</div>';
+ renderVac(R);renderChart(R);
+ $("whoseg").innerHTML=["d","m"].map(k=>`<button class="${WHO===k?"act":""}" onclick="setWho('${k}')">${WHO_N[k]}</button>`).join("");
+ setSync();
+}
+function dayStats(R,d){const f=R.filter(r=>r.type==="feed"&&dayOf(r.ts)===d);const ml=f.reduce((s,r)=>s+(+r.data.ml||0),0);const sl=R.filter(r=>r.type==="sleep"&&r.end_ts&&dayOf(r.end_ts)===d).reduce((s,r)=>s+durMin(r.ts,r.end_ts),0);return`喂奶${f.length}次 ${ml}ml · 睡眠${hm(sl)}`}
+function ago(ts){const m=durMin(ts,nowTs());return m<60?m+"分钟前":Math.floor(m/60)+"小时"+(m%60)+"分前"}
+function addDays(s,n){const d=parse(s);d.setDate(d.getDate()+n);return fmt(d).slice(0,10)}
+function md(t){const lines=esc(t).split("\n");let o="",ul=false;for(let l of lines){l=l.replace(/\*\*(.+?)\*\*/g,"<b>$1</b>");
+ if(/^\s*[-*] /.test(l)){if(!ul){o+="<ul>";ul=true}o+="<li>"+l.replace(/^\s*[-*] /,"")+"</li>";continue}if(ul){o+="</ul>";ul=false}
+ const h=l.match(/^(#{1,3}) (.*)/);o+=h?`<h3>${h[2]}</h3>`:(l.trim()?"<div>"+l+"</div>":"")}return o+(ul?"</ul>":"")}
+
+// ---- vaccines (China NIP, 2025 version, chronological age in months) ----
+const VAC=[["乙肝疫苗",1,0],["卡介苗",1,0],["乙肝疫苗",2,1],["脊灰灭活疫苗(IPV)",1,2],["百白破疫苗",1,2],["脊灰灭活疫苗(IPV)",2,3],["百白破疫苗",2,4],["脊灰减毒活疫苗(bOPV)",3,4],["乙肝疫苗",3,6],["百白破疫苗",3,6],["A群流脑多糖疫苗",1,6],["麻腮风疫苗",1,8],["乙脑减毒活疫苗",1,8],["A群流脑多糖疫苗",2,9],["百白破疫苗",4,18],["麻腮风疫苗",2,18],["甲肝减毒活疫苗",1,18],["乙脑减毒活疫苗",2,24],["A群C群流脑多糖疫苗",1,36],["脊灰减毒活疫苗(bOPV)",4,48],["白破疫苗",1,72],["A群C群流脑多糖疫苗",2,72]];
+function renderVac(R){const done=R.filter(r=>r.type==="vaccine");const today=nowTs().slice(0,10);
+ $("vaclist").innerHTML=VAC.map(([n,dose,mo])=>{const due=addMonths(BIRTH,mo);const rec=done.find(r=>r.data.name===n&&+r.data.dose===dose);
+  const late=!rec&&due<today;return`<div class="vac ${rec?"done":""} ${late?"late":""}" onclick="${rec?`openForm('vaccine','${rec.id}')`:`openForm('vaccine',null,{name:'${n}',dose:${dose}})`}"><span>${n} 第${dose}剂</span><span class="due">${rec?"已接种 "+dayOf(rec.ts):(mo?mo+"月龄 · ":"出生 · ")+due+(late?" 待补":"")}</span></div>`}).join("")+
+  done.filter(r=>!VAC.some(([n,d])=>r.data.name===n&&+r.data.dose===d)).map(itemHtml).join("")+`<div class="acts"><button class="btn ghost" onclick="openForm('vaccine')">+ 其它疫苗（自费等）</button></div>`}
+function addMonths(s,m){const d=parse(s);d.setMonth(d.getMonth()+m);return fmt(d).slice(0,10)}
+
+// ---- growth chart ----
+let REF=null,CM="weight",CS=null;
+fetch("ref.json").then(r=>r.json()).then(j=>{REF=j;render()}).catch(()=>{});
+function renderChart(R){
+ if(!REF){$("chart").innerHTML='<div class="small">加载参考数据…</div>';return}
+ const a=ages(nowTs().slice(0,10));if(!CS)CS=a.pma<350?"fenton":"who";
+ $("cm").innerHTML=[["weight","体重"],["length","身长"],["hc","头围"]].map(([k,n])=>`<button class="${CM===k?"act":""}" onclick="CM='${k}';render()">${n}</button>`).join("");
+ $("cs").innerHTML=[["fenton","Fenton 早产儿(至50周)"],["who","WHO 矫正月龄 0-24月"]].map(([k,n])=>`<button class="${CS===k?"act":""}" onclick="CS='${k}';render()">${n}</button>`).join("");
+ const ref=REF[CS][CM];const isF=CS==="fenton";const unit=CM==="weight"?"g":"cm";
+ const pts=R.filter(r=>r.type==="growth"&&r.data[CM]).map(r=>{const g=ages(dayOf(r.ts));return[isF?g.pma/7:g.corr/30.4375,+r.data[CM]]}).filter(p=>isF?p[0]<=50.5&&p[0]>=22:p[0]>=-0.2&&p[0]<=24.5);
+ const xs=ref.map(r=>r[0]);let x0=Math.min(...xs),x1=Math.max(...xs);
+ if(!isF){x1=Math.min(24,Math.max(6,Math.ceil(Math.max(a.corr/30.4375+3,...pts.map(p=>p[0]+1)))))}
+ const rr=ref.filter(r=>r[0]>=x0&&r[0]<=x1+1);let y0=Math.min(...rr.map(r=>r[1]),...pts.map(p=>p[1])),y1=Math.max(...rr.map(r=>r[5]),...pts.map(p=>p[1]));
+ const pd=(y1-y0)*.05;y0-=pd;y1+=pd;
+ const W=340,H=260,L=40,B=26,T=8,Rr=8,X=v=>L+(v-x0)/(x1-x0)*(W-L-Rr),Y=v=>H-B-(v-y0)/(y1-y0)*(H-B-T);
+ let s=`<svg viewBox="0 0 ${W} ${H}" width="100%">`;
+ const ystep=niceStep((y1-y0)/6);for(let v=Math.ceil(y0/ystep)*ystep;v<=y1;v+=ystep)s+=`<line x1="${L}" x2="${W-Rr}" y1="${Y(v)}" y2="${Y(v)}" stroke="#f3e7df"/><text x="${L-4}" y="${Y(v)+3}" text-anchor="end">${CM==="weight"&&v>=1000?(v/1000).toFixed(1)+"k":+v.toFixed(1)}</text>`;
+ const xstep=isF?2:(x1>12?2:1);for(let v=Math.ceil(x0/xstep)*xstep;v<=x1;v+=xstep)s+=`<line x1="${X(v)}" x2="${X(v)}" y1="${T}" y2="${H-B}" stroke="#f3e7df"/><text x="${X(v)}" y="${H-B+12}" text-anchor="middle">${v}</text>`;
+ s+=`<text x="${(W+L)/2}" y="${H-2}" text-anchor="middle">${isF?"矫正胎龄 PMA（周）":"矫正月龄（月）"}</text>`;
+ const col=["#e0b7a6","#d9a48f","#ff8a65","#d9a48f","#e0b7a6"];
+ for(let i=0;i<5;i++){s+=`<polyline fill="none" stroke="${col[i]}" stroke-width="${i===2?2:1.2}" ${i!==2?'stroke-dasharray="4 3"':""} points="${rr.map(r=>X(r[0])+","+Y(r[i+1])).join(" ")}"/>`;
+  const last=rr[rr.length-1];s+=`<text x="${X(last[0])-2}" y="${Y(last[i+1])-2}" text-anchor="end" style="fill:${col[i]}">P${REF.pcts[i]}</text>`}
+ pts.sort((p,q)=>p[0]-q[0]);if(pts.length>1)s+=`<polyline fill="none" stroke="#3f6fc0" stroke-width="2" points="${pts.map(p=>X(p[0])+","+Y(p[1])).join(" ")}"/>`;
+ for(const p of pts)s+=`<circle cx="${X(p[0])}" cy="${Y(p[1])}" r="4" fill="#3f6fc0" stroke="#fff" stroke-width="1.5"/>`;
+ $("chart").innerHTML=s+"</svg>";
+ $("chartnote").innerHTML=(isF?"Fenton 2013 男婴曲线（22–50 周 PMA）。":"WHO 2006 男婴标准，横轴为矫正月龄。")+" 虚线 P3/P10/P90/P97，实线 P50；蓝点为嘉越的测量值（"+unit+"）。"+(pts.length?"":"<br>此曲线范围内暂无"+({weight:"体重",length:"身长",hc:"头围"})[CM]+"数据。");
+}
+function niceStep(r){const p=Math.pow(10,Math.floor(Math.log10(r))),n=r/p;return(n<1.5?1:n<3?2:n<7?5:10)*p}
+
+// ---- forms ----
+let F={};
+function seg(name,opts,val){return`<div class="seg" data-seg="${name}">${opts.map(([v,n])=>`<button type="button" data-v="${v}" class="${val==v?"act":""}">${n}</button>`).join("")}</div>`}
+function openAdd(){const f=$("form");f.innerHTML=`<h3>添加记录</h3><div class="qa">${Object.keys(TN).map(k=>`<button type="button" onclick="openForm('${k}')"><span>${IC[k]}</span>${TN[k]}</button>`).join("")}</div><div class="acts"><button class="btn ghost" onclick="dlg.close()">取消</button></div>`;$("dlg").showModal()}
+function quickFeed(kind){openForm("feed",null,{kind})}
+function openForm(type,id,preset){
+ const R=merged();const rec=id?R.find(r=>r.id===id):null;const d={...(preset||{}),...(rec?rec.data:{})};
+ F={type,rec,seg:{}};const ts=rec?rec.ts:nowTs();let b="";
+ if(type==="growth")b=`<label>体重 (g)</label><input id="f_weight" inputmode="decimal" value="${esc(d.weight)}"><label>身长 (cm)</label><input id="f_length" inputmode="decimal" value="${esc(d.length)}"><label>头围 (cm)</label><input id="f_hc" inputmode="decimal" value="${esc(d.hc)}">`;
+ if(type==="feed"){b=`<label>方式</label>${seg("kind",[["breast","母乳亲喂"],["bottle_bm","瓶喂母乳"],["formula","配方奶"]],d.kind||"formula")}
+  <div id="bf"><label>哪侧</label>${seg("side",[["L","左"],["R","右"],["B","双侧"]],d.side||"B")}<label>时长（分钟）</label><input id="f_minutes" inputmode="numeric" value="${esc(d.minutes)}"></div>
+  <div id="bt"><label>奶量 (ml)</label>${seg("mlq",[[30,"30"],[60,"60"],[90,"90"],[120,"120"],[150,"150"]],d.ml)}<input id="f_ml" inputmode="numeric" style="margin-top:6px" value="${esc(d.ml)}"></div>`}
+ if(type==="solid")b=`<label>食物</label><input id="f_food" value="${esc(d.food)}" placeholder="如：高铁米粉"><label>量</label><input id="f_amount" value="${esc(d.amount)}" placeholder="如：2勺 / 30g"><label>反应</label><input id="f_reaction" value="${esc(d.reaction)}" placeholder="喜欢/不喜欢/过敏/便便变化…">`;
+ if(type==="sleep")b=`<label>醒来时间（留空表示还在睡）</label><input id="f_end" type="datetime-local" value="${rec?(rec.end_ts||""):nowTs()}">`;
+ if(type==="diaper")b=`<label>类型</label>${seg("kind",[["wet","小便"],["dirty","大便"],["both","都有"]],d.kind||"wet")}`;
+ if(type==="vaccine")b=`<label>疫苗名称</label><input id="f_name" value="${esc(d.name)}" list="vl"><datalist id="vl">${[...new Set(VAC.map(v=>v[0]))].map(n=>`<option value="${n}">`).join("")}</datalist><label>第几剂</label><input id="f_dose" inputmode="numeric" value="${esc(d.dose)}">`;
+ if(type==="checkup")b=`<label>医院/机构</label><input id="f_hospital" value="${esc(d.hospital)}">`;
+ if(type==="milestone")b=`<label>事件</label><input id="f_event" value="${esc(d.event)}" list="ml"><datalist id="ml">${["第一次笑","抬头","翻身","独坐","爬","站立","走路","第一次叫爸爸","第一次叫妈妈","长牙"].map(n=>`<option value="${n}">`).join("")}</datalist>`;
+ const tl=type==="sleep"?"入睡时间":type==="vaccine"||type==="checkup"||type==="milestone"?"日期":"时间";
+ const f=$("form");f.innerHTML=`<h3>${IC[type]} ${rec?"编辑":"添加"}${TN[type]}</h3><label>${tl}</label><input id="f_ts" type="datetime-local" value="${ts}">${b}<label>备注</label><textarea id="f_note">${esc(type==="growth"||type==="vaccine"||type==="checkup"||type==="milestone"||type==="feed"||type==="diaper"?d.note:d.note)}</textarea>
+ ${rec?`<div class="small" style="margin-top:6px">由${esc(rec.who)}记录${rec.by&&rec.by!==rec.who?"，"+esc(rec.by)+"修改":""}</div>`:""}
+ <div class="acts">${rec?'<button class="btn red" type="button" onclick="delRec()">删除</button>':""}<button class="btn ghost" type="button" onclick="dlg.close()">取消</button><button class="btn" type="button" onclick="saveForm()">保存</button></div>`;
+ f.querySelectorAll("[data-seg]").forEach(sg=>{const n=sg.dataset.seg;const a=sg.querySelector(".act");if(a)F.seg[n]=a.dataset.v;
+  sg.querySelectorAll("button").forEach(bt=>bt.onclick=()=>{sg.querySelectorAll("button").forEach(x=>x.classList.remove("act"));bt.classList.add("act");F.seg[n]=bt.dataset.v;if(n==="mlq")$("f_ml").value=bt.dataset.v;feedVis()})});
+ feedVis();$("dlg").showModal();
+}
+function feedVis(){if(F.type!=="feed")return;const br=F.seg.kind==="breast";$("bf").style.display=br?"":"none";$("bt").style.display=br?"none":""}
+const v=id=>{const e=$(id);return e?e.value.trim():""};
+function saveForm(){const t=F.type,ts=v("f_ts");if(!ts)return toast("请填写时间");const d={};const note=v("f_note");if(note)d.note=note;let end=null;
+ if(t==="growth"){for(const k of["weight","length","hc"]){const x=v("f_"+k);if(x){if(isNaN(+x))return toast("请输入数字");d[k]=+x}}if(!d.weight&&!d.length&&!d.hc)return toast("至少填一项");if(d.weight&&d.weight<50)d.weight=Math.round(d.weight*1000)}
+ if(t==="feed"){d.kind=F.seg.kind;if(d.kind==="breast"){d.side=F.seg.side;if(v("f_minutes"))d.minutes=+v("f_minutes")}else{if(!v("f_ml"))return toast("请填写奶量");d.ml=+v("f_ml")}}
+ if(t==="solid"){d.food=v("f_food");if(!d.food)return toast("请填写食物");d.amount=v("f_amount");d.reaction=v("f_reaction")}
+ if(t==="sleep"){end=v("f_end")||null;if(end&&end<ts)return toast("醒来时间早于入睡时间")}
+ if(t==="diaper")d.kind=F.seg.kind;
+ if(t==="vaccine"){d.name=v("f_name");if(!d.name)return toast("请填写疫苗名称");if(v("f_dose"))d.dose=+v("f_dose")}
+ if(t==="checkup")d.hospital=v("f_hospital");
+ if(t==="milestone"){d.event=v("f_event");if(!d.event)return toast("请填写事件")}
+ const r=F.rec?{...F.rec,ts,end_ts:end,data:d}:newRec(t,d,ts,end);
+ if(put(r)){$("dlg").close();toast("已保存")}}
+function delRec(){if(!confirm("确定删除这条记录？"))return;if(put({...F.rec,deleted:true})){$("dlg").close();toast("已删除")}}
+function toggleSleep(){const R=merged();const o=R.find(r=>r.type==="sleep"&&!r.end_ts);
+ if(o){if(put({...o,end_ts:nowTs()}))toast("醒啦，睡了 "+hm(durMin(o.ts,nowTs())))}else if(put(newRec("sleep",{})))toast("开始计时，宝宝睡觉啦")}
+function pickWho(){show("me")}
+function setWho(k){WHO=k;localStorage.setItem("jy_who",k);render();toast("本机身份："+WHO_N[k]);syncNow()}
+function show(p){document.querySelectorAll(".page").forEach(e=>e.classList.toggle("act",e.id==="p-"+p));document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("act",b.dataset.p===p));scrollTo(0,0)}
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>show(b.dataset.p));
+const dlg=$("dlg");
+render();if(!WHO)setTimeout(()=>{show("me");toast("请先选择：本机是爸爸还是妈妈")},300);
+syncNow();setInterval(()=>{if(document.visibilityState==="visible")syncNow()},5000);setInterval(render,60000);
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")syncNow()});
+addEventListener("online",()=>syncNow());
+if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
+</script></body></html>
