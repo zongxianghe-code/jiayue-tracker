@@ -229,7 +229,7 @@ function itemHtml(r){const t=r.ts.replace("T"," ");return`<div class="item" oncl
 let FILT="all";
 function render(){
  const R=merged(),today=nowTs().slice(0,10),a=ages(today);
- $("ageline").textContent=`实际 ${ageText(a.d)}（第${a.d+1}天） · 矫正 ${ageText(a.corr)} · PMA ${wkd(a.pma)}`;
+ $("ageline").textContent=`实际 ${ageText(a.d)}（第${a.d+1}天） · 矫正 ${ageText(a.corr)}`;
  {const G=R.filter(r=>r.type==="growth");const last=k=>G.find(r=>r.data[k]);const st=(k,n,u,f)=>{const r=last(k);return r?`<div class="stat">${n}<b>${f(r.data[k])}${u}</b>${dayOf(r.ts).slice(5)} 测</div>`:""};
   $("ages").innerHTML=(st("weight","体重","",v=>v>=1000?(v/1000).toFixed(2)+"kg":v+"g")+st("length","身长","cm",v=>v)+st("hc","头围","cm",v=>v))||'<div class="stat">还没有身高体重记录<b>点「身高体重」添加</b></div>'}
  const T=R.filter(r=>dayOf(r.ts)===today);const feeds=T.filter(r=>r.type==="feed");
@@ -289,25 +289,26 @@ function renderChart(R){
  if(!REF){$("chart").innerHTML='<div class="small">加载参考数据…</div>';return}
  const a=ages(nowTs().slice(0,10));if(!CS)CS=a.pma<350?"fenton":"who";
  $("cm").innerHTML=[["weight","体重"],["length","身长"],["hc","头围"]].map(([k,n])=>`<button class="${CM===k?"act":""}" onclick="CM='${k}';render()">${n}</button>`).join("");
- $("cs").innerHTML=[["fenton","Fenton 早产儿(至50周)"],["who","WHO 矫正月龄 0-24月"]].map(([k,n])=>`<button class="${CS===k?"act":""}" onclick="CS='${k}';render()">${n}</button>`).join("");
+ $("cs").innerHTML=[["fenton","Fenton 早产儿曲线"],["who","WHO 矫正月龄 0-24月"]].map(([k,n])=>`<button class="${CS===k?"act":""}" onclick="CS='${k}';render()">${n}</button>`).join("");
  const ref=REF[CS][CM];const isF=CS==="fenton";const unit=CM==="weight"?"g":"cm";
  const pts=R.filter(r=>r.type==="growth"&&r.data[CM]).map(r=>{const g=ages(dayOf(r.ts));return[isF?g.pma/7:g.corr/30.4375,+r.data[CM]]}).filter(p=>isF?p[0]<=50.5&&p[0]>=22:p[0]>=-0.2&&p[0]<=24.5);
- const xs=ref.map(r=>r[0]);let x0=Math.min(...xs),x1=Math.max(...xs);
+ const xs=ref.map(r=>r[0]);let x0=isF?Math.floor(GA_DAYS/7):Math.min(...xs),x1=Math.max(...xs);
  if(!isF){x1=Math.min(24,Math.max(6,Math.ceil(Math.max(a.corr/30.4375+3,...pts.map(p=>p[0]+1)))))}
  const rr=ref.filter(r=>r[0]>=x0&&r[0]<=x1+1);let y0=Math.min(...rr.map(r=>r[1]),...pts.map(p=>p[1])),y1=Math.max(...rr.map(r=>r[5]),...pts.map(p=>p[1]));
  const pd=(y1-y0)*.05;y0-=pd;y1+=pd;
  const W=340,H=260,L=40,B=26,T=8,Rr=8,X=v=>L+(v-x0)/(x1-x0)*(W-L-Rr),Y=v=>H-B-(v-y0)/(y1-y0)*(H-B-T);
  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%">`;
  const ystep=niceStep((y1-y0)/6);for(let v=Math.ceil(y0/ystep)*ystep;v<=y1;v+=ystep)s+=`<line x1="${L}" x2="${W-Rr}" y1="${Y(v)}" y2="${Y(v)}" stroke="#f3e7df"/><text x="${L-4}" y="${Y(v)+3}" text-anchor="end">${CM==="weight"&&v>=1000?(v/1000).toFixed(1)+"k":+v.toFixed(1)}</text>`;
- const xstep=isF?2:(x1>12?2:1);for(let v=Math.ceil(x0/xstep)*xstep;v<=x1;v+=xstep)s+=`<line x1="${X(v)}" x2="${X(v)}" y1="${T}" y2="${H-B}" stroke="#f3e7df"/><text x="${X(v)}" y="${H-B+12}" text-anchor="middle">${v}</text>`;
- s+=`<text x="${(W+L)/2}" y="${H-2}" text-anchor="middle">${isF?"矫正胎龄 PMA（周）":"矫正月龄（月）"}</text>`;
+ if(isF){const g0=GA_DAYS/7;for(let w=0;g0+w<=x1;w+=2)s+=`<line x1="${X(g0+w)}" x2="${X(g0+w)}" y1="${T}" y2="${H-B}" stroke="#f3e7df"/><text x="${X(g0+w)}" y="${H-B+12}" text-anchor="middle">${w}</text>`}
+ else{const xstep=x1>12?2:1;for(let v=Math.ceil(x0/xstep)*xstep;v<=x1;v+=xstep)s+=`<line x1="${X(v)}" x2="${X(v)}" y1="${T}" y2="${H-B}" stroke="#f3e7df"/><text x="${X(v)}" y="${H-B+12}" text-anchor="middle">${v}</text>`}
+ s+=`<text x="${(W+L)/2}" y="${H-2}" text-anchor="middle">${isF?"出生后（周）":"矫正月龄（月）"}</text>`;
  const col=["#e0b7a6","#d9a48f","#ff8a65","#d9a48f","#e0b7a6"];
  for(let i=0;i<5;i++){s+=`<polyline fill="none" stroke="${col[i]}" stroke-width="${i===2?2:1.2}" ${i!==2?'stroke-dasharray="4 3"':""} points="${rr.map(r=>X(r[0])+","+Y(r[i+1])).join(" ")}"/>`;
   const last=rr[rr.length-1];s+=`<text x="${X(last[0])-2}" y="${Y(last[i+1])-2}" text-anchor="end" style="fill:${col[i]}">P${REF.pcts[i]}</text>`}
  pts.sort((p,q)=>p[0]-q[0]);if(pts.length>1)s+=`<polyline fill="none" stroke="#3f6fc0" stroke-width="2" points="${pts.map(p=>X(p[0])+","+Y(p[1])).join(" ")}"/>`;
  for(const p of pts)s+=`<circle cx="${X(p[0])}" cy="${Y(p[1])}" r="4" fill="#3f6fc0" stroke="#fff" stroke-width="1.5"/>`;
  $("chart").innerHTML=s+"</svg>";
- $("chartnote").innerHTML=(isF?"Fenton 2013 男婴曲线（22–50 周 PMA）。":"WHO 2006 男婴标准，横轴为矫正月龄。")+" 虚线 P3/P10/P90/P97，实线 P50；蓝点为嘉越的测量值（"+unit+"）。"+(pts.length?"":"<br>此曲线范围内暂无"+({weight:"体重",length:"身长",hc:"头围"})[CM]+"数据。");
+ $("chartnote").innerHTML=(isF?"Fenton 2013 男婴早产儿曲线，横轴为出生后周数（适用至矫正约 10 周，之后看 WHO）。":"WHO 2006 男婴标准，横轴为矫正月龄。")+" 虚线 P3/P10/P90/P97，实线 P50；蓝点为嘉越的测量值（"+unit+"）。"+(pts.length?"":"<br>此曲线范围内暂无"+({weight:"体重",length:"身长",hc:"头围"})[CM]+"数据。");
 }
 function niceStep(r){const p=Math.pow(10,Math.floor(Math.log10(r))),n=r/p;return(n<1.5?1:n<3?2:n<7?5:10)*p}
 
