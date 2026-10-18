@@ -83,9 +83,10 @@ svg text{font-size:10px;fill:#8a7a72}
   <div class="card hero"><div class="big">宗嘉越</div>
     <div style="font-size:13px;opacity:.9">2026-07-04 出生 · 胎龄 32+4 周 · 出生体重 1800g</div>
     <div style="font-size:12px;opacity:.9;margin-top:2px" id="ageline"></div><div class="row" style="margin-top:8px" id="ages"></div></div>
+  <div class="sleepbar" id="feedbar" style="background:#ff8a65;margin-bottom:8px"><div>🤱 正在亲喂 <b id="feeddur"></b></div><button class="btn ghost" onclick="toggleFeed()">喂完</button></div>
   <div class="sleepbar" id="sleepbar"><div>😴 正在睡觉 <b id="sleepdur"></b></div><button class="btn ghost" onclick="toggleSleep()">醒了</button></div>
   <div class="card"><div class="qa">
-    <button onclick="quickFeed('breast')"><span>🤱</span>亲喂</button>
+    <button id="qfeed" onclick="toggleFeed()"><span>🤱</span>开始喂</button>
     <button onclick="quickFeed('formula')"><span>🍼</span>瓶喂配方奶</button>
     <button onclick="openForm('diaper')"><span>🧷</span>尿布</button>
     <button id="qsleep" onclick="toggleSleep()"><span>😴</span>开始睡</button>
@@ -214,7 +215,8 @@ function durMin(a,b){return Math.max(0,Math.round((parse(b)-parse(a))/6e4))}
 const hm=m=>(m>=60?Math.floor(m/60)+"小时":"")+(m%60?m%60+"分":m>=60?"":"0分");
 function desc(r){const d=r.data||{};switch(r.type){
  case"growth":return[d.weight&&("体重 "+d.weight+"g"),d.length&&("身长 "+d.length+"cm"),d.hc&&("头围 "+d.hc+"cm")].filter(Boolean).join(" · ")+(d.note?"（"+d.note+"）":"");
- case"feed":return FK[d.kind]+(d.kind==="breast"?(d.side?" "+SIDE[d.side]:"")+(d.minutes?" "+d.minutes+"分钟":""):(d.ml?" "+d.ml+"ml":""))+(d.note?" · "+d.note:"");
+ case"feed":if(d.kind==="breast"&&r.end_ts)return"母乳亲喂 "+r.ts.slice(11)+"–"+r.end_ts.slice(11)+"（"+hm(durMin(r.ts,r.end_ts))+"）"+(d.note?" · "+d.note:"");if(feedRunning(r))return"母乳亲喂 · 正在喂…"+(d.note?" · "+d.note:"");
+  return FK[d.kind]+(d.kind==="breast"?(d.side?" "+SIDE[d.side]:"")+(d.minutes?" "+d.minutes+"分钟":""):(d.ml?" "+d.ml+"ml":""))+(d.note?" · "+d.note:"");
  case"solid":return(d.food||"")+(d.amount?" "+d.amount:"")+(d.reaction?" · 反应："+d.reaction:"");
  case"sleep":return r.end_ts?("睡了 "+hm(durMin(r.ts,r.end_ts))+"（至 "+r.end_ts.slice(11)+"）"):"正在睡…";
  case"supp":return(d.which==="other"?(d.name||"其他补剂"):SUPP[d.which]||"")+(d.dose?" "+d.dose:"")+(d.note?" · "+d.note:"");
@@ -223,6 +225,8 @@ function desc(r){const d=r.data||{};switch(r.type){
  case"vaccine":return(d.name||"")+(d.dose?" 第"+d.dose+"剂":"")+(d.note?" · "+d.note:"");
  case"checkup":return(d.hospital||"")+(d.note?" · "+d.note:"");
  case"milestone":return(d.event||"")+(d.note?" · "+d.note:"");}return""}
+function feedRunning(r){return r.type==="feed"&&r.data.kind==="breast"&&!r.end_ts&&!r.data.minutes&&!r.data.side}
+function feedMin(r){return r.end_ts?durMin(r.ts,r.end_ts):(+r.data.minutes||0)}
 function itemHtml(r){const t=r.ts.replace("T"," ");return`<div class="item" onclick="openDetail('${r.id}')"><div class="ic">${IC[r.type]}</div><div class="m"><div>${esc(desc(r))}</div><div class="t">${t}<span class="tag ${r.who==="妈妈"?"mom":"dad"}">${esc(r.who||"")}</span></div></div></div>`}
 
 // ---- render ----
@@ -233,7 +237,7 @@ function render(){
  {const G=R.filter(r=>r.type==="growth");const last=k=>G.find(r=>r.data[k]);const st=(k,n,u,f)=>{const r=last(k);return r?`<div class="stat">${n}<b>${f(r.data[k])}${u}</b>${dayOf(r.ts).slice(5)} 测</div>`:""};
   $("ages").innerHTML=(st("weight","体重","",v=>v>=1000?(v/1000).toFixed(2)+"kg":v+"g")+st("length","身长","cm",v=>v)+st("hc","头围","cm",v=>v))||'<div class="stat">还没有身高体重记录<b>点「身高体重」添加</b></div>'}
  const T=R.filter(r=>dayOf(r.ts)===today);const feeds=T.filter(r=>r.type==="feed");
- const ml=feeds.reduce((s,r)=>s+(+r.data.ml||0),0),bm=feeds.filter(r=>r.data.kind==="breast").reduce((s,r)=>s+(+r.data.minutes||0),0);
+ const ml=feeds.reduce((s,r)=>s+(+r.data.ml||0),0),bm=feeds.filter(r=>r.data.kind==="breast").reduce((s,r)=>s+feedMin(r),0);
  const sl=R.filter(r=>r.type==="sleep"&&r.end_ts&&dayOf(r.end_ts)===today).reduce((s,r)=>s+durMin(r.ts,r.end_ts),0);
  const lastFeed=R.find(r=>r.type==="feed");const dp=T.filter(r=>r.type==="diaper").length;
  $("today").innerHTML=`<div class="stat" style="background:#fff1ea">喂奶<b>${feeds.length}次</b>${ml}ml${bm?" · 亲喂"+bm+"分":""}</div><div class="stat" style="background:#eaf2fd">睡眠<b>${hm(sl)}</b>今日已醒来的</div><div class="stat" style="background:#eefaf0">上次喂奶<b>${lastFeed?ago(lastFeed.ts):"—"}</b>${dp?"尿布 "+dp+" 次":""}</div>`;
@@ -244,6 +248,7 @@ function render(){
  $("recent").innerHTML=R.slice(0,8).map(itemHtml).join("")||'<div class="small">还没有记录，点上面的按钮开始吧</div>';
  const ongoing=R.find(r=>r.type==="sleep"&&!r.end_ts);
  $("sleepbar").style.display=ongoing?"flex":"none";$("qsleep").classList.toggle("on",!!ongoing);$("qsleep").innerHTML=ongoing?"<span>⏰</span>醒了":"<span>😴</span>开始睡";
+ {const of=R.find(feedRunning);$("feedbar").style.display=of?"flex":"none";$("qfeed").classList.toggle("on",!!of);$("qfeed").innerHTML=of?"<span>✅</span>喂完":"<span>🤱</span>开始喂";if(of)$("feeddur").textContent=hm(durMin(of.ts,nowTs()))}
  if(ongoing)$("sleepdur").textContent=hm(durMin(ongoing.ts,nowTs()));
  $("filt").innerHTML=["all",...Object.keys(TN)].map(k=>`<button class="${FILT===k?"act":""}" onclick="FILT='${k}';render()">${k==="all"?"全部":TN[k]}</button>`).join("");
  const L=R.filter(r=>FILT==="all"||r.type===FILT);let html="",lastD="";
@@ -319,6 +324,7 @@ const FL={weight:"体重(g)",length:"身长(cm)",hc:"头围(cm)",kind:"方式/�
 function fv(r,k,v){const t=r.type;if(k==="kind")return t==="feed"?FK[v]:t==="diaper"?{wet:"小便",dirty:"大便",both:"大小便"}[v]:t==="exercise"?EX[v]:v;if(k==="side")return SIDE[v];if(k==="which")return SUPP[v];if(Array.isArray(v))return v.join("、");return v}
 function openDetail(id){const r=merged().find(x=>x.id===id);if(!r)return;const tm=x=>new Date(x).toLocaleString("zh-CN",{hour12:false});
  let rows=`<div>类型</div><div>${IC[r.type]} ${TN[r.type]}</div><div>${r.type==="sleep"?"入睡":"时间"}</div><div>${r.ts.replace("T"," ")}</div>`;
+ if(r.type==="feed"&&r.data.kind==="breast")rows+=r.end_ts?`<div>结束</div><div>${r.end_ts.replace("T"," ")}</div><div>时长</div><div>${hm(durMin(r.ts,r.end_ts))}</div>`:feedRunning(r)?`<div>结束</div><div>正在喂（已 ${hm(durMin(r.ts,nowTs()))}）</div>`:"";
  if(r.type==="sleep")rows+=`<div>醒来</div><div>${r.end_ts?r.end_ts.replace("T"," ")+"（"+hm(durMin(r.ts,r.end_ts))+"）":"还在睡"}</div>`;
  for(const[k,v]of Object.entries(r.data||{}))if(v!==""&&v!=null)rows+=`<div>${FL[k]||k}</div><div>${esc(fv(r,k,v))}</div>`;
  rows+=`<div>记录人</div><div>${esc(r.who||"")}${r.created_at?" · "+tm(r.created_at):""}</div>`;if(r.updated_at&&r.updated_at!==r.created_at)rows+=`<div>最后修改</div><div>${esc(r.by||r.who||"")} · ${tm(r.updated_at)}</div>`;
@@ -332,7 +338,7 @@ function openForm(type,id,preset){
  F={type,rec,seg:{}};const ts=rec?rec.ts:nowTs();let b="";
  if(type==="growth")b=`<label>体重 (g)</label><input id="f_weight" inputmode="decimal" value="${esc(d.weight)}"><label>身长 (cm)</label><input id="f_length" inputmode="decimal" value="${esc(d.length)}"><label>头围 (cm)</label><input id="f_hc" inputmode="decimal" value="${esc(d.hc)}">`;
  if(type==="feed"){b=`<label>方式</label>${seg("kind",[["breast","母乳亲喂"],["formula","瓶喂配方奶"]].concat(d.kind==="bottle_bm"?[["bottle_bm","瓶喂母乳"]]:[]),d.kind||"breast")}
-  <div id="bf"><label>哪侧</label>${seg("side",[["L","左"],["R","右"],["B","双侧"]],d.side||"B")}<label>时长（分钟）</label><input id="f_minutes" inputmode="numeric" value="${esc(d.minutes)}"></div>
+  <div id="bf"><label>结束时间（留空表示还在喂）</label><input id="f_fend" type="datetime-local" value="${rec?(rec.end_ts||""):""}">${rec&&!rec.end_ts&&(d.minutes||d.side)?`<div class="small">旧记录：${d.side?SIDE[d.side]+" ":""}${d.minutes?d.minutes+"分钟":""}（填写结束时间后改为按起止时间计算）</div>`:""}</div>
   <div id="bt"><label>奶量 (ml)</label>${seg("mlq",[[30,"30"],[60,"60"],[90,"90"],[120,"120"],[150,"150"]],d.ml)}<input id="f_ml" inputmode="numeric" style="margin-top:6px" value="${esc(d.ml)}"></div>`}
  if(type==="solid")b=`<label>食物</label><input id="f_food" value="${esc(d.food)}" placeholder="如：高铁米粉"><label>量</label><input id="f_amount" value="${esc(d.amount)}" placeholder="如：2勺 / 30g"><label>反应</label><input id="f_reaction" value="${esc(d.reaction)}" placeholder="喜欢/不喜欢/过敏/便便变化…">`;
  if(type==="sleep")b=`<label>醒来时间（留空表示还在睡）</label><input id="f_end" type="datetime-local" value="${rec?(rec.end_ts||""):nowTs()}">`;
@@ -342,7 +348,7 @@ function openForm(type,id,preset){
  if(type==="vaccine")b=`<label>疫苗名称</label><input id="f_name" value="${esc(d.name)}" list="vl"><datalist id="vl">${[...new Set(VAC.map(v=>v[0]))].map(n=>`<option value="${n}">`).join("")}</datalist><label>第几剂</label><input id="f_dose" inputmode="numeric" value="${esc(d.dose)}">`;
  if(type==="checkup")b=`<label>医院/机构</label><input id="f_hospital" value="${esc(d.hospital)}">`;
  if(type==="milestone")b=`<label>事件</label><input id="f_event" value="${esc(d.event)}" list="ml"><datalist id="ml">${["第一次笑","抬头","翻身","独坐","爬","站立","走路","第一次叫爸爸","第一次叫妈妈","长牙"].map(n=>`<option value="${n}">`).join("")}</datalist>`;
- const tl=type==="sleep"?"入睡时间":type==="vaccine"||type==="checkup"||type==="milestone"?"日期":"时间";
+ const tl=type==="sleep"?"入睡时间":type==="feed"?"时间（亲喂为开始时间）":type==="vaccine"||type==="checkup"||type==="milestone"?"日期":"时间";
  const f=$("form");if(!TN[type])return;f.innerHTML=`<h3>${IC[type]} ${rec?"编辑":"添加"}${TN[type]}</h3><label>${tl}</label><input id="f_ts" type="datetime-local" value="${ts}">${b}<label>备注</label><textarea id="f_note">${esc(type==="growth"||type==="vaccine"||type==="checkup"||type==="milestone"||type==="feed"||type==="diaper"?d.note:d.note)}</textarea>
  ${rec?`<div class="small" style="margin-top:6px">由${esc(rec.who)}记录${rec.by&&rec.by!==rec.who?"，"+esc(rec.by)+"修改":""}</div>`:""}
  <div class="acts">${rec?'<button class="btn red" type="button" onclick="delRec()">删除</button>':""}<button class="btn ghost" type="button" onclick="dlg.close()">取消</button><button class="btn" type="button" onclick="saveForm()">保存</button></div>`;
@@ -355,7 +361,7 @@ if(F.type!=="feed")return;const br=F.seg.kind==="breast";$("bf").style.display=b
 const v=id=>{const e=$(id);return e?e.value.trim():""};
 function saveForm(){const t=F.type,ts=v("f_ts");if(!ts)return toast("请填写时间");const d={};const note=v("f_note");if(note)d.note=note;let end=null;
  if(t==="growth"){for(const k of["weight","length","hc"]){const x=v("f_"+k);if(x){if(isNaN(+x))return toast("请输入数字");d[k]=+x}}if(!d.weight&&!d.length&&!d.hc)return toast("至少填一项");if(d.weight&&d.weight<50)d.weight=Math.round(d.weight*1000)}
- if(t==="feed"){d.kind=F.seg.kind;if(d.kind==="breast"){d.side=F.seg.side;if(v("f_minutes"))d.minutes=+v("f_minutes")}else{if(!v("f_ml"))return toast("请填写奶量");d.ml=+v("f_ml")}}
+ if(t==="feed"){d.kind=F.seg.kind;if(d.kind==="breast"){end=v("f_fend")||null;if(end&&end<ts)return toast("结束时间早于开始时间");const od=F.rec?F.rec.data:{};if(!end){if(od.minutes)d.minutes=od.minutes;if(od.side)d.side=od.side}}else{if(!v("f_ml"))return toast("请填写奶量");d.ml=+v("f_ml")}}
  if(t==="solid"){d.food=v("f_food");if(!d.food)return toast("请填写食物");d.amount=v("f_amount");d.reaction=v("f_reaction")}
  if(t==="sleep"){end=v("f_end")||null;if(end&&end<ts)return toast("醒来时间早于入睡时间")}
  if(t==="diaper")d.kind=F.seg.kind;
@@ -367,6 +373,8 @@ function saveForm(){const t=F.type,ts=v("f_ts");if(!ts)return toast("请填写�
  const r=F.rec?{...F.rec,ts,end_ts:end,data:d}:newRec(t,d,ts,end);
  if(put(r)){$("dlg").close();toast("已保存")}}
 function delRec(){if(!confirm("确定删除这条记录？"))return;if(put({...F.rec,deleted:true})){$("dlg").close();toast("已删除")}}
+function toggleFeed(){const o=merged().find(feedRunning);
+ if(o){if(put({...o,end_ts:nowTs()}))toast("喂完啦，喂了 "+hm(durMin(o.ts,nowTs())))}else if(put(newRec("feed",{kind:"breast"})))toast("开始计时亲喂")}
 function toggleSleep(){const R=merged();const o=R.find(r=>r.type==="sleep"&&!r.end_ts);
  if(o){if(put({...o,end_ts:nowTs()}))toast("醒啦，睡了 "+hm(durMin(o.ts,nowTs())))}else if(put(newRec("sleep",{})))toast("开始计时，宝宝睡觉啦")}
 function useLink(){const k=parseLink($("linkin").value.trim());if(!k)return toast("链接不完整，需要包含 #d=…&m=…&s=…");
