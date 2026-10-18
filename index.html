@@ -69,6 +69,11 @@ svg text{font-size:10px;fill:#8a7a72}
 .sleepbar{background:#5b9bd5;color:#fff;border-radius:14px;padding:12px;display:none;align-items:center;justify-content:space-between}
 </style></head><body>
 <header><h1>👶 嘉越成长记</h1><div id="sync">…</div></header>
+<div id="nokeys" class="card" style="display:none;margin:12px;border:2px solid #ff8a65"><h2>🔑 请先在Safari打开家庭链接，再添加到主屏幕</h2>
+<div class="small">本机还没有家庭密钥，记录无法同步。<br>方法一：删除这个主屏幕图标 → 在 Safari 里打开家人发来的完整家庭链接 → 选择爸爸/妈妈 → 分享 → 添加到主屏幕。<br>方法二：把完整家庭链接粘贴到下面：</div>
+<textarea id="linkin" placeholder="https://zongxianghe-code.github.io/jiayue-tracker/#d=…&m=…&s=…"></textarea>
+<div class="acts"><button class="btn" onclick="useLink()">使用这个链接</button></div></div>
+<div id="errbar" style="display:none;margin:0 12px;background:#fdecea;color:#b3261e;border-radius:12px;padding:8px 12px;font-size:13px"></div>
 <main>
 <section class="page act" id="p-home">
   <div class="card hero"><div class="big">宗嘉越</div>
@@ -109,7 +114,7 @@ svg text{font-size:10px;fill:#8a7a72}
 <section class="page" id="p-me">
   <div class="card"><h2>本机身份</h2><div class="seg" id="whoseg"></div><div class="small" style="margin-top:6px">每台手机选一次。记录会标注是谁记的。</div></div>
   <div class="card"><h2>添加到主屏幕</h2><div class="small">在 Safari 中打开本页 → 点底部「分享」按钮 → 「添加到主屏幕」。请务必用家庭链接（带 # 后面那串）打开一次，本机会记住密钥。</div></div>
-  <div class="card"><h2>同步</h2><div class="small" id="syncinfo"></div><div class="acts"><button class="btn ghost" onclick="syncNow(true)">立即同步</button></div></div>
+  <div class="card"><h2>同步</h2><div class="small" id="syncinfo"></div><div class="small" id="modeinfo"></div><div class="acts"><button class="btn ghost" onclick="syncNow(true)">立即同步</button></div></div>
 </section>
 </main>
 <nav>
@@ -136,10 +141,15 @@ const daysBetween=(a,b)=>Math.round((Date.UTC(+b.slice(0,4),+b.slice(5,7)-1,+b.s
 const uid=()=>Date.now().toString(36)+"-"+Array.from(crypto.getRandomValues(new Uint8Array(6)),b=>b.toString(16).padStart(2,"0")).join("");
 function toast(t){const e=$("toast");e.textContent=t;e.style.display="block";clearTimeout(toast.t);toast.t=setTimeout(()=>e.style.display="none",1800)}
 
-// ---- keys from hash ----
-(function(){const h=new URLSearchParams(location.hash.slice(1));if(h.get("d")&&h.get("m")&&h.get("s")){localStorage.setItem("jy_keys",JSON.stringify({d:h.get("d"),m:h.get("m"),s:h.get("s")}));history.replaceState(null,"",location.pathname)}})();
-const KEYS=JSON.parse(localStorage.getItem("jy_keys")||"null");
+// ---- keys from hash (hash is KEPT so iOS 添加到主屏幕 captures keys + role) ----
+function parseLink(str){const i=str.indexOf("#");const h=new URLSearchParams(i>=0?str.slice(i+1):str);return h.get("d")&&h.get("m")&&h.get("s")?{d:h.get("d"),m:h.get("m"),s:h.get("s"),r:h.get("r")}:null}
+let KEYS=JSON.parse(localStorage.getItem("jy_keys")||"null");
 let WHO=localStorage.getItem("jy_who")||"";
+(function(){const k=parseLink(location.hash);if(k){KEYS={d:k.d,m:k.m,s:k.s};localStorage.setItem("jy_keys",JSON.stringify(KEYS));
+ const r={dad:"d",mom:"m",d:"d",m:"m"}[k.r];if(r){WHO=r;localStorage.setItem("jy_who",r)}}})();
+function fixHash(){if(!KEYS)return;const h="#d="+KEYS.d+"&m="+KEYS.m+"&s="+KEYS.s+(WHO?"&r="+(WHO==="d"?"dad":"mom"):"");if(location.hash!==h)history.replaceState(null,"",location.pathname+location.search+h)}
+fixHash();
+const STANDALONE=navigator.standalone===true||matchMedia("(display-mode: standalone)").matches;
 const WHO_N={d:"爸爸",m:"妈妈"};
 // ---- local state ----
 let DOCS=JSON.parse(localStorage.getItem("jy_docs")||'{"d":{"records":{}},"m":{"records":{}}}');
@@ -168,10 +178,10 @@ async function syncNow(manual){
   }
   lastSync=Date.now();syncErr="";save();render();
   if(manual)toast("已同步");
- }catch(e){syncErr=String(e);if(manual)toast("同步失败，稍后自动重试")}
+ }catch(e){syncErr=(e&&e.name==="TimeoutError")?"网络超时":(e&&e.message)||String(e);if(manual)toast("同步失败，稍后自动重试")}
  finally{syncing=false;setSync()}
 }
-function setSync(t){const p=Object.keys(PEND).length;$("sync").textContent=t||(!KEYS?"⚠️ 未配置家庭链接":syncErr?"⚠️ 离线"+(p?" · "+p+"条待上传":""):p?p+"条待上传":lastSync?"✓ 已同步 "+new Date(lastSync).toTimeString().slice(0,5):"");
+function setSync(t){$("nokeys").style.display=KEYS?"none":"block";const eb=$("errbar");eb.style.display=syncErr&&KEYS?"block":"none";eb.textContent="⚠️ 同步失败："+syncErr+"（"+(Object.keys(PEND).length?Object.keys(PEND).length+"条记录暂存在本机，":"")+"联网后会自动重试）";const p=Object.keys(PEND).length;$("sync").textContent=t||(!KEYS?"⚠️ 未配置家庭链接":syncErr?"⚠️ 离线"+(p?" · "+p+"条待上传":""):p?p+"条待上传":lastSync?"✓ 已同步 "+new Date(lastSync).toTimeString().slice(0,5):"");
  $("syncinfo").textContent=KEYS?("家庭密钥已保存。"+(lastSync?"上次同步 "+new Date(lastSync).toLocaleTimeString():"")+(p?"，待上传 "+p+" 条":"")+(syncErr?"，错误："+syncErr:"")):"未检测到家庭密钥，请用家人发给你的完整链接打开一次。"}
 function put(rec){if(!WHO){pickWho();toast("请先选择本机是爸爸还是妈妈");return false}
  rec.updated_at=Date.now();rec.who=rec.who||WHO_N[WHO];rec.by=WHO_N[WHO];PEND[rec.id]=rec;save();render();syncNow();return true}
@@ -311,11 +321,14 @@ function saveForm(){const t=F.type,ts=v("f_ts");if(!ts)return toast("请填写�
 function delRec(){if(!confirm("确定删除这条记录？"))return;if(put({...F.rec,deleted:true})){$("dlg").close();toast("已删除")}}
 function toggleSleep(){const R=merged();const o=R.find(r=>r.type==="sleep"&&!r.end_ts);
  if(o){if(put({...o,end_ts:nowTs()}))toast("醒啦，睡了 "+hm(durMin(o.ts,nowTs())))}else if(put(newRec("sleep",{})))toast("开始计时，宝宝睡觉啦")}
+function useLink(){const k=parseLink($("linkin").value.trim());if(!k)return toast("链接不完整，需要包含 #d=…&m=…&s=…");
+ KEYS={d:k.d,m:k.m,s:k.s};localStorage.setItem("jy_keys",JSON.stringify(KEYS));const r={dad:"d",mom:"m"}[k.r];if(r){WHO=r;localStorage.setItem("jy_who",r)}fixHash();render();syncNow(true)}
 function pickWho(){show("me")}
-function setWho(k){WHO=k;localStorage.setItem("jy_who",k);render();toast("本机身份："+WHO_N[k]);syncNow()}
+function setWho(k){WHO=k;localStorage.setItem("jy_who",k);fixHash();render();toast("本机身份："+WHO_N[k]);syncNow()}
 function show(p){document.querySelectorAll(".page").forEach(e=>e.classList.toggle("act",e.id==="p-"+p));document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("act",b.dataset.p===p));scrollTo(0,0)}
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>show(b.dataset.p));
 const dlg=$("dlg");
+$("modeinfo").textContent=(STANDALONE?"主屏幕应用模式":"浏览器模式")+(WHO?" · 本机："+WHO_N[WHO]:"");
 render();if(!WHO)setTimeout(()=>{show("me");toast("请先选择：本机是爸爸还是妈妈")},300);
 syncNow();setInterval(()=>{if(document.visibilityState==="visible")syncNow()},5000);setInterval(render,60000);
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")syncNow()});
