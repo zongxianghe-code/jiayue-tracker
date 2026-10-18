@@ -31,7 +31,10 @@ main{padding:0 12px}
 h2{font-size:16px;margin:4px 0 8px}
 .sum{white-space:normal}
 .sum h1,.sum h2,.sum h3{font-size:15px;margin:8px 0 4px}
-.sum ul{padding-left:20px;margin:4px 0}
+.sum ul{padding-left:20px;margin:4px 0}.sum p{margin:4px 0}.sum hr{border:0;border-top:1px solid var(--line)}
+.tw{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:6px 0}.tw table{border-collapse:collapse;font-size:13px;min-width:100%;white-space:nowrap}
+.tw th{background:#ffe3d6;text-align:left;padding:5px 8px}.tw td{padding:5px 8px;border-top:1px solid var(--line)}.tw tbody tr:nth-child(even){background:#fff6f1}
+.det{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:15px}.det div:nth-child(odd){color:var(--sub);font-size:13px}
 .item{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);align-items:flex-start}
 .item:last-child{border-bottom:0}
 .ic{font-size:22px;width:30px;text-align:center}
@@ -79,11 +82,11 @@ svg text{font-size:10px;fill:#8a7a72}
 <section class="page act" id="p-home">
   <div class="card hero"><div class="big">宗嘉越</div>
     <div style="font-size:13px;opacity:.9">2026-07-04 出生 · 胎龄 32+4 周 · 出生体重 1800g</div>
-    <div class="row" style="margin-top:8px" id="ages"></div></div>
+    <div style="font-size:12px;opacity:.9;margin-top:2px" id="ageline"></div><div class="row" style="margin-top:8px" id="ages"></div></div>
   <div class="sleepbar" id="sleepbar"><div>😴 正在睡觉 <b id="sleepdur"></b></div><button class="btn ghost" onclick="toggleSleep()">醒了</button></div>
   <div class="card"><div class="qa">
     <button onclick="quickFeed('breast')"><span>🤱</span>亲喂</button>
-    <button onclick="quickFeed('bottle_bm')"><span>🍼</span>瓶喂母乳</button>
+    <button onclick="quickFeed('formula')"><span>🍼</span>瓶喂配方奶</button>
     <button onclick="openForm('diaper')"><span>🧷</span>尿布</button>
     <button id="qsleep" onclick="toggleSleep()"><span>😴</span>开始睡</button>
     <button onclick="openForm('supp')"><span>💊</span>补剂</button>
@@ -94,8 +97,12 @@ svg text{font-size:10px;fill:#8a7a72}
   <div class="card"><h2>💊 今日补剂 <span class="small">点一下即记录</span></h2><div class="qa" id="supps" style="grid-template-columns:repeat(3,1fr)"></div></div>
   <div class="card"><h2>🤸 今日运动 <span class="small">点一下即记录一项</span></h2><div class="chips" id="exs" style="flex-wrap:wrap"></div></div>
   <div class="card"><h2>📊 今日</h2><div class="row" id="today"></div></div>
-  <div class="card" id="sumcard"><h2>📝 每日小结 <span class="small" id="sumdate"></span></h2><div class="sum" id="sum"><span class="small">每天早上 8 点会生成前一天的小结</span></div></div>
+  <div class="card" id="sumcard" onclick="show('sum')" style="display:flex;justify-content:space-between;align-items:center"><div>📝 <b>每日小结</b> <span class="small" id="sumdate">每天早上 8 点生成</span></div><span style="color:var(--pri)">查看 ›</span></div>
   <div class="card"><h2>最近记录</h2><div id="recent"></div></div>
+</section>
+<section class="page" id="p-sum">
+  <div class="card"><div style="display:flex;gap:8px;align-items:center"><button class="btn ghost" onclick="sumNav(-1)">‹</button><input type="date" id="sumpick" style="flex:1;text-align:center" onchange="SUMDAY=this.value;renderSum()"><button class="btn ghost" onclick="sumNav(1)">›</button></div></div>
+  <div class="card"><div class="sum" id="sum"></div></div>
 </section>
 <section class="page" id="p-list">
   <div class="chips" id="filt"></div>
@@ -123,6 +130,7 @@ svg text{font-size:10px;fill:#8a7a72}
 <nav>
   <button class="act" data-p="home"><span>🏠</span>首页</button>
   <button data-p="list"><span>📋</span>记录</button>
+  <button data-p="sum"><span>📝</span>小结</button>
   <button data-p="chart"><span>📈</span>曲线</button>
   <button data-p="health"><span>💉</span>健康</button>
   <button data-p="me"><span>⚙️</span>设置</button>
@@ -215,20 +223,22 @@ function desc(r){const d=r.data||{};switch(r.type){
  case"vaccine":return(d.name||"")+(d.dose?" 第"+d.dose+"剂":"")+(d.note?" · "+d.note:"");
  case"checkup":return(d.hospital||"")+(d.note?" · "+d.note:"");
  case"milestone":return(d.event||"")+(d.note?" · "+d.note:"");}return""}
-function itemHtml(r){const t=r.ts.replace("T"," ");return`<div class="item" onclick="openForm('${r.type}','${r.id}')"><div class="ic">${IC[r.type]}</div><div class="m"><div>${esc(desc(r))}</div><div class="t">${t}<span class="tag ${r.who==="妈妈"?"mom":"dad"}">${esc(r.who||"")}</span></div></div></div>`}
+function itemHtml(r){const t=r.ts.replace("T"," ");return`<div class="item" onclick="openDetail('${r.id}')"><div class="ic">${IC[r.type]}</div><div class="m"><div>${esc(desc(r))}</div><div class="t">${t}<span class="tag ${r.who==="妈妈"?"mom":"dad"}">${esc(r.who||"")}</span></div></div></div>`}
 
 // ---- render ----
 let FILT="all";
 function render(){
  const R=merged(),today=nowTs().slice(0,10),a=ages(today);
- $("ages").innerHTML=`<div class="stat">实际月龄<b>${ageText(a.d)}</b>第${a.d+1}天</div><div class="stat">矫正月龄<b>${ageText(a.corr)}</b>预产期 ${addDays(BIRTH,280-GA_DAYS)}</div><div class="stat">矫正胎龄(PMA)<b>${wkd(a.pma)}</b>${a.pma<350?"用 Fenton 曲线":"用 WHO 曲线"}</div>`;
+ $("ageline").textContent=`实际 ${ageText(a.d)}（第${a.d+1}天） · 矫正 ${ageText(a.corr)} · PMA ${wkd(a.pma)}`;
+ {const G=R.filter(r=>r.type==="growth");const last=k=>G.find(r=>r.data[k]);const st=(k,n,u,f)=>{const r=last(k);return r?`<div class="stat">${n}<b>${f(r.data[k])}${u}</b>${dayOf(r.ts).slice(5)} 测</div>`:""};
+  $("ages").innerHTML=(st("weight","体重","",v=>v>=1000?(v/1000).toFixed(2)+"kg":v+"g")+st("length","身长","cm",v=>v)+st("hc","头围","cm",v=>v))||'<div class="stat">还没有身高体重记录<b>点「身高体重」添加</b></div>'}
  const T=R.filter(r=>dayOf(r.ts)===today);const feeds=T.filter(r=>r.type==="feed");
  const ml=feeds.reduce((s,r)=>s+(+r.data.ml||0),0),bm=feeds.filter(r=>r.data.kind==="breast").reduce((s,r)=>s+(+r.data.minutes||0),0);
  const sl=R.filter(r=>r.type==="sleep"&&r.end_ts&&dayOf(r.end_ts)===today).reduce((s,r)=>s+durMin(r.ts,r.end_ts),0);
  const lastFeed=R.find(r=>r.type==="feed");const dp=T.filter(r=>r.type==="diaper").length;
  $("today").innerHTML=`<div class="stat" style="background:#fff1ea">喂奶<b>${feeds.length}次</b>${ml}ml${bm?" · 亲喂"+bm+"分":""}</div><div class="stat" style="background:#eaf2fd">睡眠<b>${hm(sl)}</b>今日已醒来的</div><div class="stat" style="background:#eefaf0">上次喂奶<b>${lastFeed?ago(lastFeed.ts):"—"}</b>${dp?"尿布 "+dp+" 次":""}</div>`;
- if(SUM&&SUM.text){$("sum").innerHTML=md(SUM.text);$("sumdate").textContent=SUM.date?"（"+SUM.date+"）":""}
- $("supps").innerHTML=["AD","D","iron"].map(k=>{const g=T.filter(r=>r.type==="supp"&&r.data.which===k);return g.length?`<button class="on" style="background:#5cb85c;color:#fff" onclick="openForm('supp','${g[0].id}')"><span>✅</span>${k==="iron"?"铁":k} ${g[g.length-1].ts.slice(11)}</button>`:`<button onclick="quickSupp('${k}')"><span>💊</span>${k==="iron"?"铁":k} 未给</button>`}).join("");
+ {const ds=sumDays();$("sumdate").textContent=ds.length?ds[ds.length-1]+" 已生成":"每天早上 8 点生成";renderSum()}
+ $("supps").innerHTML=["AD","D","iron"].map(k=>{const g=T.filter(r=>r.type==="supp"&&r.data.which===k);return g.length?`<button class="on" style="background:#5cb85c;color:#fff" onclick="openDetail('${g[0].id}')"><span>✅</span>${k==="iron"?"铁":k} ${g[g.length-1].ts.slice(11)}</button>`:`<button onclick="quickSupp('${k}')"><span>💊</span>${k==="iron"?"铁":k} 未给</button>`}).join("");
  {const done=new Set(T.filter(r=>r.type==="exercise").flatMap(r=>r.data.items||[EX[r.data.kind]||r.data.name].filter(Boolean)));
   $("exs").innerHTML=EXI.map(n=>done.has(n)?`<button class="act">✓ ${n}</button>`:`<button onclick="quickEx('${n}')">${n}</button>`).join("")+[...done].filter(n=>!EXI.includes(n)).map(n=>`<button class="act">✓ ${esc(n)}</button>`).join("")+`<button onclick="openForm('exercise')">＋ 多项/其他</button>`}
  $("recent").innerHTML=R.slice(0,8).map(itemHtml).join("")||'<div class="small">还没有记录，点上面的按钮开始吧</div>';
@@ -248,15 +258,27 @@ function render(){
 function dayStats(R,d){const f=R.filter(r=>r.type==="feed"&&dayOf(r.ts)===d);const ml=f.reduce((s,r)=>s+(+r.data.ml||0),0);const sl=R.filter(r=>r.type==="sleep"&&r.end_ts&&dayOf(r.end_ts)===d).reduce((s,r)=>s+durMin(r.ts,r.end_ts),0);return`喂奶${f.length}次 ${ml}ml · 睡眠${hm(sl)}`}
 function ago(ts){const m=durMin(ts,nowTs());return m<60?m+"分钟前":Math.floor(m/60)+"小时"+(m%60)+"分前"}
 function addDays(s,n){const d=parse(s);d.setDate(d.getDate()+n);return fmt(d).slice(0,10)}
-function md(t){const lines=esc(t).split("\n");let o="",ul=false;for(let l of lines){l=l.replace(/\*\*(.+?)\*\*/g,"<b>$1</b>");
- if(/^\s*[-*] /.test(l)){if(!ul){o+="<ul>";ul=true}o+="<li>"+l.replace(/^\s*[-*] /,"")+"</li>";continue}if(ul){o+="</ul>";ul=false}
- const h=l.match(/^(#{1,3}) (.*)/);o+=h?`<h3>${h[2]}</h3>`:(l.trim()?"<div>"+l+"</div>":"")}return o+(ul?"</ul>":"")}
+function sumMap(){if(!SUM)return{};if(SUM.days)return SUM.days;return SUM.text&&SUM.date?{[SUM.date]:{text:SUM.text}}:{}}
+function sumDays(){return Object.keys(sumMap()).filter(d=>sumMap()[d]&&sumMap()[d].text).sort()}
+let SUMDAY=null;
+function renderSum(){const ds=sumDays(),m=sumMap();if(!SUMDAY||!m[SUMDAY])SUMDAY=SUMDAY&&$("sumpick").value===SUMDAY?SUMDAY:(ds[ds.length-1]||null);
+ $("sumpick").value=SUMDAY||"";$("sum").innerHTML=SUMDAY&&m[SUMDAY]?`<div class="small">${SUMDAY} 的小结</div>`+md(m[SUMDAY].text):'<div class="small">'+(SUMDAY?SUMDAY+" 没有小结":"还没有小结，每天早上 8 点会生成前一天的小结")+'</div>'}
+function sumNav(k){const ds=sumDays();if(!ds.length)return;let i=ds.indexOf(SUMDAY);if(i<0)i=ds.findIndex(d=>d>SUMDAY)-(k>0?1:0);i=Math.max(0,Math.min(ds.length-1,(i<0?ds.length:i)+k));SUMDAY=ds[i];renderSum()}
+function md(t){const L=esc(t).split("\n");let o="",ul=false;const il=x=>x.replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/`([^`]+)`/g,"<code>$1</code>");
+ const cells=l=>l.trim().replace(/^\|/,"").replace(/\|$/,"").split("|").map(c=>il(c.trim()));
+ for(let i=0;i<L.length;i++){const l=L[i];
+  if(/^\s*\|.*\|\s*$/.test(l)&&i+1<L.length&&/^\s*\|?\s*:?-{2,}/.test(L[i+1])){if(ul){o+="</ul>";ul=false}
+   let h=cells(l),t=`<div class="tw"><table><thead><tr>${h.map(c=>`<th>${c}</th>`).join("")}</tr></thead><tbody>`;i+=2;
+   while(i<L.length&&/^\s*\|/.test(L[i])){t+=`<tr>${cells(L[i]).map(c=>`<td>${c}</td>`).join("")}</tr>`;i++}i--;o+=t+"</tbody></table></div>";continue}
+  if(/^\s*[-*] /.test(l)){if(!ul){o+="<ul>";ul=true}o+="<li>"+il(l.replace(/^\s*[-*] /,""))+"</li>";continue}if(ul){o+="</ul>";ul=false}
+  if(/^\s*(---|\*\*\*)\s*$/.test(l)){o+="<hr>";continue}
+  const h=l.match(/^(#{1,4}) (.*)/);o+=h?`<h3>${il(h[2])}</h3>`:(l.trim()?"<p>"+il(l)+"</p>":"")}return o+(ul?"</ul>":"")}
 
 // ---- vaccines (China NIP, 2025 version, chronological age in months) ----
 const VAC=[["乙肝疫苗",1,0],["卡介苗",1,0],["乙肝疫苗",2,1],["脊灰灭活疫苗(IPV)",1,2],["百白破疫苗",1,2],["脊灰灭活疫苗(IPV)",2,3],["百白破疫苗",2,4],["脊灰减毒活疫苗(bOPV)",3,4],["乙肝疫苗",3,6],["百白破疫苗",3,6],["A群流脑多糖疫苗",1,6],["麻腮风疫苗",1,8],["乙脑减毒活疫苗",1,8],["A群流脑多糖疫苗",2,9],["百白破疫苗",4,18],["麻腮风疫苗",2,18],["甲肝减毒活疫苗",1,18],["乙脑减毒活疫苗",2,24],["A群C群流脑多糖疫苗",1,36],["脊灰减毒活疫苗(bOPV)",4,48],["白破疫苗",1,72],["A群C群流脑多糖疫苗",2,72]];
 function renderVac(R){const done=R.filter(r=>r.type==="vaccine");const today=nowTs().slice(0,10);
  $("vaclist").innerHTML=VAC.map(([n,dose,mo])=>{const due=addMonths(BIRTH,mo);const rec=done.find(r=>r.data.name===n&&+r.data.dose===dose);
-  const late=!rec&&due<today;return`<div class="vac ${rec?"done":""} ${late?"late":""}" onclick="${rec?`openForm('vaccine','${rec.id}')`:`openForm('vaccine',null,{name:'${n}',dose:${dose}})`}"><span>${n} 第${dose}剂</span><span class="due">${rec?"已接种 "+dayOf(rec.ts):(mo?mo+"月龄 · ":"出生 · ")+due+(late?" 待补":"")}</span></div>`}).join("")+
+  const late=!rec&&due<today;return`<div class="vac ${rec?"done":""} ${late?"late":""}" onclick="${rec?`openDetail('${rec.id}')`:`openForm('vaccine',null,{name:'${n}',dose:${dose}})`}"><span>${n} 第${dose}剂</span><span class="due">${rec?"已接种 "+dayOf(rec.ts):(mo?mo+"月龄 · ":"出生 · ")+due+(late?" 待补":"")}</span></div>`}).join("")+
   done.filter(r=>!VAC.some(([n,d])=>r.data.name===n&&+r.data.dose===d)).map(itemHtml).join("")+`<div class="acts"><button class="btn ghost" onclick="openForm('vaccine')">+ 其它疫苗（自费等）</button></div>`}
 function addMonths(s,m){const d=parse(s);d.setMonth(d.getMonth()+m);return fmt(d).slice(0,10)}
 
@@ -292,7 +314,15 @@ function niceStep(r){const p=Math.pow(10,Math.floor(Math.log10(r))),n=r/p;return
 // ---- forms ----
 let F={};
 function seg(name,opts,val){return`<div class="seg" data-seg="${name}">${opts.map(([v,n])=>`<button type="button" data-v="${v}" class="${val==v?"act":""}">${n}</button>`).join("")}</div>`}
-function openAdd(){const f=$("form");f.innerHTML=`<h3>添加记录</h3><div class="qa"><button type="button" onclick="quickFeed('formula')"><span>🥛</span>配方奶</button>${Object.keys(TN).map(k=>`<button type="button" onclick="openForm('${k}')"><span>${IC[k]}</span>${TN[k]}</button>`).join("")}</div><div class="acts"><button class="btn ghost" onclick="dlg.close()">取消</button></div>`;$("dlg").showModal()}
+const FL={weight:"体重(g)",length:"身长(cm)",hc:"头围(cm)",kind:"方式/类型",side:"哪侧",minutes:"时长(分钟)",ml:"奶量(ml)",food:"食物",amount:"量",reaction:"反应",name:"名称",dose:"剂量",hospital:"医院",event:"事件",which:"补剂",items:"项目",note:"备注"};
+function fv(r,k,v){const t=r.type;if(k==="kind")return t==="feed"?FK[v]:t==="diaper"?{wet:"小便",dirty:"大便",both:"大小便"}[v]:t==="exercise"?EX[v]:v;if(k==="side")return SIDE[v];if(k==="which")return SUPP[v];if(Array.isArray(v))return v.join("、");return v}
+function openDetail(id){const r=merged().find(x=>x.id===id);if(!r)return;const tm=x=>new Date(x).toLocaleString("zh-CN",{hour12:false});
+ let rows=`<div>类型</div><div>${IC[r.type]} ${TN[r.type]}</div><div>${r.type==="sleep"?"入睡":"时间"}</div><div>${r.ts.replace("T"," ")}</div>`;
+ if(r.type==="sleep")rows+=`<div>醒来</div><div>${r.end_ts?r.end_ts.replace("T"," ")+"（"+hm(durMin(r.ts,r.end_ts))+"）":"还在睡"}</div>`;
+ for(const[k,v]of Object.entries(r.data||{}))if(v!==""&&v!=null)rows+=`<div>${FL[k]||k}</div><div>${esc(fv(r,k,v))}</div>`;
+ rows+=`<div>记录人</div><div>${esc(r.who||"")}${r.created_at?" · "+tm(r.created_at):""}</div>`;if(r.updated_at&&r.updated_at!==r.created_at)rows+=`<div>最后修改</div><div>${esc(r.by||r.who||"")} · ${tm(r.updated_at)}</div>`;
+ $("form").innerHTML=`<h3>${IC[r.type]} ${esc(desc(r))}</h3><div class="det">${rows}</div><div class="acts"><button class="btn red" type="button" onclick="F={rec:merged().find(x=>x.id==='${id}')};delRec()">删除</button><button class="btn ghost" type="button" onclick="dlg.close()">关闭</button><button class="btn" type="button" onclick="dlg.close();openForm('${r.type}','${id}')">修改</button></div>`;$("dlg").showModal()}
+function openAdd(){const f=$("form");f.innerHTML=`<h3>添加记录</h3><div class="qa">${Object.keys(TN).map(k=>`<button type="button" onclick="openForm('${k}')"><span>${IC[k]}</span>${TN[k]}</button>`).join("")}</div><div class="acts"><button class="btn ghost" onclick="dlg.close()">取消</button></div>`;$("dlg").showModal()}
 function quickSupp(k){const dose=localStorage.getItem("jy_dose_"+k)||SDOSE[k];if(put(newRec("supp",{which:k,dose})))toast("已记录 "+SUPP[k]+" "+dose)}
 function quickEx(n){if(put(newRec("exercise",{items:[n]})))toast("已记录：" + n)}
 function quickFeed(kind){openForm("feed",null,{kind})}
@@ -300,7 +330,7 @@ function openForm(type,id,preset){
  const R=merged();const rec=id?R.find(r=>r.id===id):null;const d={...(preset||{}),...(rec?rec.data:{})};
  F={type,rec,seg:{}};const ts=rec?rec.ts:nowTs();let b="";
  if(type==="growth")b=`<label>体重 (g)</label><input id="f_weight" inputmode="decimal" value="${esc(d.weight)}"><label>身长 (cm)</label><input id="f_length" inputmode="decimal" value="${esc(d.length)}"><label>头围 (cm)</label><input id="f_hc" inputmode="decimal" value="${esc(d.hc)}">`;
- if(type==="feed"){b=`<label>方式</label>${seg("kind",[["breast","母乳亲喂"],["bottle_bm","瓶喂母乳"],["formula","配方奶"]],d.kind||"breast")}
+ if(type==="feed"){b=`<label>方式</label>${seg("kind",[["breast","母乳亲喂"],["formula","瓶喂配方奶"]].concat(d.kind==="bottle_bm"?[["bottle_bm","瓶喂母乳"]]:[]),d.kind||"breast")}
   <div id="bf"><label>哪侧</label>${seg("side",[["L","左"],["R","右"],["B","双侧"]],d.side||"B")}<label>时长（分钟）</label><input id="f_minutes" inputmode="numeric" value="${esc(d.minutes)}"></div>
   <div id="bt"><label>奶量 (ml)</label>${seg("mlq",[[30,"30"],[60,"60"],[90,"90"],[120,"120"],[150,"150"]],d.ml)}<input id="f_ml" inputmode="numeric" style="margin-top:6px" value="${esc(d.ml)}"></div>`}
  if(type==="solid")b=`<label>食物</label><input id="f_food" value="${esc(d.food)}" placeholder="如：高铁米粉"><label>量</label><input id="f_amount" value="${esc(d.amount)}" placeholder="如：2勺 / 30g"><label>反应</label><input id="f_reaction" value="${esc(d.reaction)}" placeholder="喜欢/不喜欢/过敏/便便变化…">`;
