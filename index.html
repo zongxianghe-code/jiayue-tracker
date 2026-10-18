@@ -58,6 +58,7 @@ label{display:block;font-size:13px;color:var(--sub);margin:8px 0 3px}
 input,select,textarea{width:100%;font-size:16px;padding:9px 10px;border:1px solid #e8d8ce;border-radius:10px;background:#fffdfb;color:var(--txt);font-family:inherit}
 textarea{min-height:60px}
 .seg{display:flex;gap:6px;flex-wrap:wrap}.seg button{flex:1;border:1px solid #e8d8ce;background:#fff;border-radius:10px;padding:8px 4px;font-size:14px;color:var(--txt)}
+#exsel button{flex:0 0 auto;min-width:30%}
 .seg button.act{background:var(--pri);color:#fff;border-color:var(--pri)}
 .acts{display:flex;gap:8px;margin-top:14px}.acts .btn{flex:1}
 svg text{font-size:10px;fill:#8a7a72}
@@ -91,6 +92,7 @@ svg text{font-size:10px;fill:#8a7a72}
     <button onclick="openAdd()"><span>➕</span>更多</button>
   </div></div>
   <div class="card"><h2>💊 今日补剂 <span class="small">点一下即记录</span></h2><div class="qa" id="supps" style="grid-template-columns:repeat(3,1fr)"></div></div>
+  <div class="card"><h2>🤸 今日运动 <span class="small">点一下即记录一项</span></h2><div class="chips" id="exs" style="flex-wrap:wrap"></div></div>
   <div class="card"><h2>📊 今日</h2><div class="row" id="today"></div></div>
   <div class="card" id="sumcard"><h2>📝 每日小结 <span class="small" id="sumdate"></span></h2><div class="sum" id="sum"><span class="small">每天早上 8 点会生成前一天的小结</span></div></div>
   <div class="card"><h2>最近记录</h2><div id="recent"></div></div>
@@ -197,7 +199,8 @@ function ageText(days){if(days<0)return"未到预产期（还差"+(-days)+"天�
 const TN={growth:"生长",feed:"喂奶",solid:"辅食",sleep:"睡眠",diaper:"尿布",supp:"补剂",exercise:"运动",vaccine:"疫苗",checkup:"体检",milestone:"里程碑"};
 const IC={growth:"📏",feed:"🍼",solid:"🥣",sleep:"😴",diaper:"🧷",supp:"💊",exercise:"🤸",vaccine:"💉",checkup:"🏥",milestone:"🌟"};
 const FK={breast:"母乳亲喂",bottle_bm:"瓶喂母乳",formula:"配方奶"};
-const SUPP={AD:"维生素AD",D:"维生素D",iron:"铁剂",other:"其他"},SDOSE={AD:"1粒",D:"1粒",iron:"1ml"},EX={tummy:"趴卧(趴趴时间)",passive:"被动操/抚触",other:"其他"};
+const SUPP={AD:"维生素AD",D:"维生素D",iron:"铁剂",other:"其他"},SDOSE={AD:"1粒",D:"1粒",iron:"1ml"},EX={tummy:"趴卧",passive:"被动操/抚触",other:"其他"};
+const EXI=["抬头","趴卧","被动操","抚触","蹬腿","追视/追听","翻身练习"];
 const SIDE={L:"左",R:"右",B:"双侧"};
 function durMin(a,b){return Math.max(0,Math.round((parse(b)-parse(a))/6e4))}
 const hm=m=>(m>=60?Math.floor(m/60)+"小时":"")+(m%60?m%60+"分":m>=60?"":"0分");
@@ -207,7 +210,7 @@ function desc(r){const d=r.data||{};switch(r.type){
  case"solid":return(d.food||"")+(d.amount?" "+d.amount:"")+(d.reaction?" · 反应："+d.reaction:"");
  case"sleep":return r.end_ts?("睡了 "+hm(durMin(r.ts,r.end_ts))+"（至 "+r.end_ts.slice(11)+"）"):"正在睡…";
  case"supp":return(d.which==="other"?(d.name||"其他补剂"):SUPP[d.which]||"")+(d.dose?" "+d.dose:"")+(d.note?" · "+d.note:"");
- case"exercise":return(d.kind==="other"?(d.name||"其他"):EX[d.kind]||"")+(d.minutes?" "+d.minutes+"分钟":"")+(d.note?" · "+d.note:"");
+ case"exercise":if(d.items)return d.items.join("、")+(d.minutes?" "+d.minutes+"分钟":"")+(d.note?" · "+d.note:"");return(d.kind==="other"?(d.name||"其他"):EX[d.kind]||"")+(d.minutes?" "+d.minutes+"分钟":"")+(d.note?" · "+d.note:"");
  case"diaper":return({wet:"小便",dirty:"大便",both:"大小便"}[d.kind]||"")+(d.note?" · "+d.note:"");
  case"vaccine":return(d.name||"")+(d.dose?" 第"+d.dose+"剂":"")+(d.note?" · "+d.note:"");
  case"checkup":return(d.hospital||"")+(d.note?" · "+d.note:"");
@@ -226,6 +229,8 @@ function render(){
  $("today").innerHTML=`<div class="stat" style="background:#fff1ea">喂奶<b>${feeds.length}次</b>${ml}ml${bm?" · 亲喂"+bm+"分":""}</div><div class="stat" style="background:#eaf2fd">睡眠<b>${hm(sl)}</b>今日已醒来的</div><div class="stat" style="background:#eefaf0">上次喂奶<b>${lastFeed?ago(lastFeed.ts):"—"}</b>${dp?"尿布 "+dp+" 次":""}</div>`;
  if(SUM&&SUM.text){$("sum").innerHTML=md(SUM.text);$("sumdate").textContent=SUM.date?"（"+SUM.date+"）":""}
  $("supps").innerHTML=["AD","D","iron"].map(k=>{const g=T.filter(r=>r.type==="supp"&&r.data.which===k);return g.length?`<button class="on" style="background:#5cb85c;color:#fff" onclick="openForm('supp','${g[0].id}')"><span>✅</span>${k==="iron"?"铁":k} ${g[g.length-1].ts.slice(11)}</button>`:`<button onclick="quickSupp('${k}')"><span>💊</span>${k==="iron"?"铁":k} 未给</button>`}).join("");
+ {const done=new Set(T.filter(r=>r.type==="exercise").flatMap(r=>r.data.items||[EX[r.data.kind]||r.data.name].filter(Boolean)));
+  $("exs").innerHTML=EXI.map(n=>done.has(n)?`<button class="act">✓ ${n}</button>`:`<button onclick="quickEx('${n}')">${n}</button>`).join("")+[...done].filter(n=>!EXI.includes(n)).map(n=>`<button class="act">✓ ${esc(n)}</button>`).join("")+`<button onclick="openForm('exercise')">＋ 多项/其他</button>`}
  $("recent").innerHTML=R.slice(0,8).map(itemHtml).join("")||'<div class="small">还没有记录，点上面的按钮开始吧</div>';
  const ongoing=R.find(r=>r.type==="sleep"&&!r.end_ts);
  $("sleepbar").style.display=ongoing?"flex":"none";$("qsleep").classList.toggle("on",!!ongoing);$("qsleep").innerHTML=ongoing?"<span>⏰</span>醒了":"<span>😴</span>开始睡";
@@ -289,6 +294,7 @@ let F={};
 function seg(name,opts,val){return`<div class="seg" data-seg="${name}">${opts.map(([v,n])=>`<button type="button" data-v="${v}" class="${val==v?"act":""}">${n}</button>`).join("")}</div>`}
 function openAdd(){const f=$("form");f.innerHTML=`<h3>添加记录</h3><div class="qa"><button type="button" onclick="quickFeed('formula')"><span>🥛</span>配方奶</button>${Object.keys(TN).map(k=>`<button type="button" onclick="openForm('${k}')"><span>${IC[k]}</span>${TN[k]}</button>`).join("")}</div><div class="acts"><button class="btn ghost" onclick="dlg.close()">取消</button></div>`;$("dlg").showModal()}
 function quickSupp(k){const dose=localStorage.getItem("jy_dose_"+k)||SDOSE[k];if(put(newRec("supp",{which:k,dose})))toast("已记录 "+SUPP[k]+" "+dose)}
+function quickEx(n){if(put(newRec("exercise",{items:[n]})))toast("已记录：" + n)}
 function quickFeed(kind){openForm("feed",null,{kind})}
 function openForm(type,id,preset){
  const R=merged();const rec=id?R.find(r=>r.id===id):null;const d={...(preset||{}),...(rec?rec.data:{})};
@@ -300,7 +306,7 @@ function openForm(type,id,preset){
  if(type==="solid")b=`<label>食物</label><input id="f_food" value="${esc(d.food)}" placeholder="如：高铁米粉"><label>量</label><input id="f_amount" value="${esc(d.amount)}" placeholder="如：2勺 / 30g"><label>反应</label><input id="f_reaction" value="${esc(d.reaction)}" placeholder="喜欢/不喜欢/过敏/便便变化…">`;
  if(type==="sleep")b=`<label>醒来时间（留空表示还在睡）</label><input id="f_end" type="datetime-local" value="${rec?(rec.end_ts||""):nowTs()}">`;
  if(type==="supp")b=`<label>补剂</label>${seg("which",[["AD","AD"],["D","D"],["iron","铁"],["other","其他"]],d.which||"AD")}<div id="sname"><label>名称</label><input id="f_name" value="${esc(d.name)}" placeholder="如：DHA、益生菌"></div><label>剂量</label><input id="f_dose" value="${esc(d.dose||"")}" placeholder="如：1粒 / 2滴 / 1ml / 5mg">`;
- if(type==="exercise")b=`<label>类型</label>${seg("kind",[["tummy","趴卧"],["passive","被动操/抚触"],["other","其他"]],d.kind||"tummy")}<div id="ename"><label>名称</label><input id="f_ename" value="${esc(d.name)}"></div><label>时长（分钟）</label>${seg("minq",[[3,"3"],[5,"5"],[10,"10"],[15,"15"],[20,"20"]],d.minutes)}<input id="f_minutes" inputmode="numeric" style="margin-top:6px" value="${esc(d.minutes)}">`;
+ if(type==="exercise"){F.items=new Set(d.items||[]);const extra=[...F.items].filter(n=>!EXI.includes(n));b=`<label>做了哪些（可多选）</label><div class="seg" id="exsel">${EXI.map(n=>`<button type="button" class="${F.items.has(n)?"act":""}" onclick="this.classList.toggle('act');F.items.has('${n}')?F.items.delete('${n}'):F.items.add('${n}')">${n}</button>`).join("")}</div><label>其他（自定义，用逗号分隔）</label><input id="f_custom" value="${esc(extra.join("，")||(d.kind==="other"?d.name||"":""))}"><label>时长（分钟，可不填）</label><input id="f_minutes" inputmode="numeric" value="${esc(d.minutes)}">`;if(!d.items&&d.kind&&EX[d.kind]&&d.kind!=="other")F.items.add(d.kind==="tummy"?"趴卧":"被动操")}
  if(type==="diaper")b=`<label>类型</label>${seg("kind",[["wet","小便"],["dirty","大便"],["both","都有"]],d.kind||"wet")}`;
  if(type==="vaccine")b=`<label>疫苗名称</label><input id="f_name" value="${esc(d.name)}" list="vl"><datalist id="vl">${[...new Set(VAC.map(v=>v[0]))].map(n=>`<option value="${n}">`).join("")}</datalist><label>第几剂</label><input id="f_dose" inputmode="numeric" value="${esc(d.dose)}">`;
  if(type==="checkup")b=`<label>医院/机构</label><input id="f_hospital" value="${esc(d.hospital)}">`;
@@ -314,7 +320,7 @@ function openForm(type,id,preset){
  feedVis();$("dlg").showModal();
 }
 function feedVis(){if(F.type==="supp"){$("sname").style.display=F.seg.which==="other"?"":"none";if(!$("f_dose").value&&SDOSE[F.seg.which])$("f_dose").value=localStorage.getItem("jy_dose_"+F.seg.which)||SDOSE[F.seg.which]}
- if(F.type==="exercise")$("ename").style.display=F.seg.kind==="other"?"":"none";if(F.type!=="feed")return;const br=F.seg.kind==="breast";$("bf").style.display=br?"":"none";$("bt").style.display=br?"none":""}
+if(F.type!=="feed")return;const br=F.seg.kind==="breast";$("bf").style.display=br?"":"none";$("bt").style.display=br?"none":""}
 const v=id=>{const e=$(id);return e?e.value.trim():""};
 function saveForm(){const t=F.type,ts=v("f_ts");if(!ts)return toast("请填写时间");const d={};const note=v("f_note");if(note)d.note=note;let end=null;
  if(t==="growth"){for(const k of["weight","length","hc"]){const x=v("f_"+k);if(x){if(isNaN(+x))return toast("请输入数字");d[k]=+x}}if(!d.weight&&!d.length&&!d.hc)return toast("至少填一项");if(d.weight&&d.weight<50)d.weight=Math.round(d.weight*1000)}
@@ -323,7 +329,7 @@ function saveForm(){const t=F.type,ts=v("f_ts");if(!ts)return toast("请填写�
  if(t==="sleep"){end=v("f_end")||null;if(end&&end<ts)return toast("醒来时间早于入睡时间")}
  if(t==="diaper")d.kind=F.seg.kind;
  if(t==="supp"){d.which=F.seg.which;if(d.which==="other"){d.name=v("f_name");if(!d.name)return toast("请填写补剂名称")}d.dose=v("f_dose");if(d.dose&&d.which!=="other")localStorage.setItem("jy_dose_"+d.which,d.dose)}
- if(t==="exercise"){d.kind=F.seg.kind;if(d.kind==="other")d.name=v("f_ename");if(v("f_minutes")){if(isNaN(+v("f_minutes")))return toast("请输入数字");d.minutes=+v("f_minutes")}}
+ if(t==="exercise"){const items=[...F.items].filter(n=>EXI.includes(n));for(const c of v("f_custom").split(/[,，、]/).map(x=>x.trim()).filter(Boolean))items.push(c);if(!items.length)return toast("请至少选一项");d.items=items;if(v("f_minutes")){if(isNaN(+v("f_minutes")))return toast("请输入数字");d.minutes=+v("f_minutes")}}
  if(t==="vaccine"){d.name=v("f_name");if(!d.name)return toast("请填写疫苗名称");if(v("f_dose"))d.dose=+v("f_dose")}
  if(t==="checkup")d.hospital=v("f_hospital");
  if(t==="milestone"){d.event=v("f_event");if(!d.event)return toast("请填写事件")}
