@@ -14,16 +14,21 @@ Three textdb docs (each `https://textdb.online/<key>` read, `POST https://api.te
 - Types: growth{weight g,length cm,hc cm}, feed{kind breast|bottle_bm|formula, side L|R|B, minutes, ml}, solid{food,amount,reaction}, sleep(ts,end_ts; open = sleeping), diaper{kind}, vaccine{name,dose}, checkup{hospital}, milestone{event}; all may have note. `ts` = local time `YYYY-MM-DDTHH:MM` (Asia/Shanghai).
 - Sync: poll every 5 s while visible + on visibilitychange/online; offline edits queue in localStorage.
 
-## Day window (7am–7am Asia/Shanghai)
-A summary **day D** covers **[D 07:00, D+1 07:00)**. Morning job ~07:45 publishes the window that just ended (yesterday 07:00 → today 07:00).
-- A record belongs to the day where its **start (`ts`)** falls. Sleep/feed spanning 07:00 stays on the start day (duration not clipped).
-- Example: feed at 06:30 on calendar D+1 → day D. Sleep started 02:00 D+1 ending 08:00 D+1 → day D.
-- Running sleep/feed included iff start is in the window.
-- App UI 「今日」 still uses calendar midnight (unchanged).
+## Day window (calendar day Asia/Shanghai)
+A summary **day D** covers **[D 00:00, D+1 00:00)**. Morning job publishes yesterday's calendar day.
+- A record belongs to the day where its **start (`ts`)** falls.
+- Open feed/sleep (no `end_ts`) started on D: export sets `duration_min` as if ended at D+1 00:00, with `assumed_end: true` / `end_assumed` ISO — **not written to live textdb**. Summary text should note 「未点结束，按当天24点估算」.
+- App UI 「今日」 also uses calendar midnight.
 
-## Bot (~07:45 daily summary)
-    python3 tools/jy.py export 2026-10-17 > /tmp/day.json   # window_start/window_end + records in that window + ages + recent growth
-    python3 tools/jy.py summary 2026-10-17 summary.md       # upsert into SUMMARY_KEY history
+## Week window
+`export-week YYYY-MM-DD` — date must be a **Sunday**. Week = **[that Mon 00:00, next Mon 00:00)** (Mon–Sun).
+Weekly summaries stored in SUMMARY_KEY as `weeks: {"YYYY-MM-DD": {text, updated}}` (Sunday date), alongside `days`.
+
+## Bot (daily ~ morning, weekly optional)
+    python3 tools/jy.py export 2026-10-17 > /tmp/day.json
+    python3 tools/jy.py summary 2026-10-17 summary.md
+    python3 tools/jy.py export-week 2026-10-18 > /tmp/week.json   # Sunday
+    python3 tools/jy.py summary-week 2026-10-18 week.md
 
 ## Redeploy
     cd site && git add -A && git commit -m update && git push   # Pages rebuilds in ~1 min

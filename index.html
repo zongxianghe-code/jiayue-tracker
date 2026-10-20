@@ -264,10 +264,20 @@ function dayStats(R,d){const f=R.filter(r=>r.type==="feed"&&dayOf(r.ts)===d);con
 function ago(ts){const m=durMin(ts,nowTs());return m<60?m+"分钟前":Math.floor(m/60)+"小时"+(m%60)+"分前"}
 function addDays(s,n){const d=parse(s);d.setDate(d.getDate()+n);return fmt(d).slice(0,10)}
 function sumMap(){if(!SUM)return{};if(SUM.days)return SUM.days;return SUM.text&&SUM.date?{[SUM.date]:{text:SUM.text}}:{}}
-function sumDays(){return Object.keys(sumMap()).filter(d=>sumMap()[d]&&sumMap()[d].text).sort()}
+function weekMap(){return(SUM&&SUM.weeks)||{}}
+function sumDays(){const s=new Set(Object.keys(sumMap()).filter(d=>sumMap()[d]&&sumMap()[d].text));
+ for(const d of Object.keys(weekMap()))if(weekMap()[d]&&weekMap()[d].text)s.add(d);return[...s].sort()}
 let SUMDAY=null;
-function renderSum(){const ds=sumDays(),m=sumMap();if(!SUMDAY||!m[SUMDAY])SUMDAY=SUMDAY&&$("sumpick").value===SUMDAY?SUMDAY:(ds[ds.length-1]||null);
- $("sumpick").value=SUMDAY||"";$("sum").innerHTML=SUMDAY&&m[SUMDAY]?`<div class="small">${SUMDAY} 的小结</div>`+md(m[SUMDAY].text):'<div class="small">'+(SUMDAY?SUMDAY+" 没有小结":"还没有小结，每天早上 8 点会生成前一天的小结")+'</div>'}
+function renderSum(){const ds=sumDays(),m=sumMap(),w=weekMap();
+ if(!SUMDAY)SUMDAY=ds[ds.length-1]||Object.keys(w).sort().slice(-1)[0]||null;
+ $("sumpick").value=SUMDAY||"";
+ let html='';
+ if(SUMDAY&&m[SUMDAY])html+=`<div class="small">📝 ${SUMDAY} 日报</div>`+md(m[SUMDAY].text);
+ else html+=`<div class="small">${SUMDAY?SUMDAY+" 没有日报":"还没有小结，每天早上会生成前一天的日报"}</div>`;
+ if(SUMDAY&&w[SUMDAY])html+=`<hr><div class="small">📅 周小结（截至该周日）</div>`+md(w[SUMDAY].text);
+ else if(SUMDAY){const sun=(()=>{const d=new Date(SUMDAY+"T00:00");const day=d.getDay();d.setDate(d.getDate()+(day?7-day:0));return d.toISOString().slice(0,10)})();
+  if(sun!==SUMDAY&&w[sun])html+=`<div class="small" style="margin-top:8px">本周周小结在 <a href="#" onclick="SUMDAY='${sun}';renderSum();return false">${sun}</a>（周日）</div>`}
+ $("sum").innerHTML=html}
 function sumNav(k){const ds=sumDays();if(!ds.length)return;let i=ds.indexOf(SUMDAY);if(i<0)i=ds.findIndex(d=>d>SUMDAY)-(k>0?1:0);i=Math.max(0,Math.min(ds.length-1,(i<0?ds.length:i)+k));SUMDAY=ds[i];renderSum()}
 function md(t){const L=esc(t).split("\n");let o="",ul=false;const il=x=>x.replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/`([^`]+)`/g,"<code>$1</code>");
  const cells=l=>l.trim().replace(/^\|/,"").replace(/\|$/,"").split("|").map(c=>il(c.trim()));
