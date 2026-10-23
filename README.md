@@ -16,8 +16,10 @@ Three textdb docs (each `https://textdb.online/<key>` read, `POST https://api.te
 
 ## Day window (calendar day Asia/Shanghai)
 A summary **day D** covers **[D 00:00, D+1 00:00)**. Morning job publishes yesterday's calendar day.
-- A record belongs to the day where its **start (`ts`)** falls.
-- Open feed/sleep (no `end_ts`) started on D: export sets `duration_min` as if ended at D+1 00:00, with `assumed_end: true` / `end_assumed` ISO — **not written to live textdb**. Summary text should note 「未点结束，按当天24点估算」.
+- **Point events** (diaper, bottle, growth, …): belong to D if `ts` ∈ [D 00:00, D+1 00:00).
+- **Sleep / breast feed** (timed): included on D if the interval **overlaps** the window (started before D+1 00:00 and ended after D 00:00, or still open and started before D+1 00:00).
+- **Midnight split**: duration on D is the intersection with [D 00:00, D+1 00:00). Export sets clipped `duration_min` plus `clip_start` / `clip_end`. Pre-midnight minutes count on the start day; post-midnight minutes count on the next day.
+- Open feed/sleep (no `end_ts` / no `minutes`): for day D's portion only, assume ended at D+1 00:00 (`assumed_end: true` / `end_assumed` ISO) — **not written to live textdb**. Summary text should note 「未点结束，按当天24点估算」.
 - App UI 「今日」 also uses calendar midnight.
 
 ## Week window

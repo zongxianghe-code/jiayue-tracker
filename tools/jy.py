@@ -45,44 +45,74 @@ def merged():
 def _parse(s):
     if not s: return None
     return dt.datetime.fromisoformat(s[:16] if 'T' in s else s+'T00:00')
-def _annotate(r, day_end=None):
-    """Add duration_min / running / end_assumed. day_end = exclusive end of day window (D+1 00:00).
-    Assumed end only for export; never written to textdb."""
+def _is_timed(r):
+    """Sleep or breast feed — duration events that may cross midnight."""
+    if r['type']=='sleep': return True
+    return r['type']=='feed' and (r.get('data') or {}).get('kind')=='breast'
+def _event_end(r, st, assume_end=None):
+    """Actual or assumed end datetime. assume_end used only when still open (no end_ts / minutes)."""
+    if r.get('end_ts'):
+        return _parse(r['end_ts']), False
+    if r['type']=='feed' and (r.get('data') or {}).get('minutes') is not None:
+        return st+dt.timedelta(minutes=int(r['data']['minutes'])), False
+    if assume_end is not None and st < assume_end:
+        return assume_end, True
+    return None, False
+def _annotate(r, ws=None, we=None, day_end=None):
+    """Add duration_min / running / end_assumed / clip_start / clip_end.
+    When ws/we given (day window [ws, we)), clip duration to the intersection.
+    Assumed end only for export; never written to textdb.
+    day_end kept as alias for we (week export compat)."""
+    if we is None and day_end is not None: we=day_end
     r=copy.deepcopy(r)
-    kind=(r.get('data') or {}).get('kind')
-    if r['type']=='feed' and kind=='breast':
-        if r.get('end_ts'):
-            r['duration_min']=int((_parse(r['end_ts'])-_parse(r['ts'])).total_seconds()//60)
-        elif r.get('data',{}).get('minutes'):
-            r['duration_min']=r['data']['minutes']
-        elif day_end and _parse(r['ts']) and _parse(r['ts'])<day_end:
-            # open breast feed: assume ended at day_end for this day's stats
-            r['duration_min']=max(0,int((day_end-_parse(r['ts'])).total_seconds()//60))
-            r['running']=True
-            r['end_assumed']=day_end.isoformat(timespec='minutes')
-            r['assumed_end']=True
-        elif not r.get('data',{}).get('side'):
-            r['running']=True
-    if r['type']=='sleep':
-        if r.get('end_ts'):
-            r['duration_min']=int((_parse(r['end_ts'])-_parse(r['ts'])).total_seconds()//60)
-        elif day_end and _parse(r['ts']) and _parse(r['ts'])<day_end:
-            r['duration_min']=max(0,int((day_end-_parse(r['ts'])).total_seconds()//60))
-            r['running']=True
-            r['end_assumed']=day_end.isoformat(timespec='minutes')
-            r['assumed_end']=True
-        else:
-            r['running']=True
+    if not _is_timed(r):
+        return r
+    st=_parse(r['ts'])
+    if st is None:
+        return r
+    end, assumed=_event_end(r, st, assume_end=we)
+    if end is None:
+        r['running']=True
+        return r
+    if assumed:
+        r['running']=True
+        r['end_assumed']=end.isoformat(timespec='minutes')
+        r['assumed_end']=True
+    if ws is not None and we is not None:
+        clip_start=max(st, ws)
+        clip_end=min(end, we)
+        if clip_start>=clip_end:
+            r['duration_min']=0
+            return r
+        r['duration_min']=max(0,int((clip_end-clip_start).total_seconds()//60))
+        r['clip_start']=clip_start.isoformat(timespec='minutes')
+        r['clip_end']=clip_end.isoformat(timespec='minutes')
+    else:
+        r['duration_min']=max(0,int((end-st).total_seconds()//60))
     return r
+def _overlaps(r, ws, we):
+    """True if record belongs on day window: overlaps [ws, we).
+    Timed (sleep/breast): started before we and ended after ws (open → assume end=we).
+    Point events: ts in [ws, we)."""
+    st=_parse(r['ts'])
+    if st is None: return False
+    if not _is_timed(r):
+        return ws<=st<we
+    end, _=_event_end(r, st, assume_end=we)
+    if end is None:
+        return st<we  # open with no assume window — include if started before we
+    return st<we and end>ws
 def _baby(day0):
     days=(day0-dt.date(2026,7,4)).days; pma=32*7+4+days
     return {"name":"宗嘉越","sex":"male","birth_date":"2026-07-04","ga_at_birth":"32+4","birth_weight_g":1800,
             "age_days":days,"pma":f"{pma//7}+{pma%7}","corrected_age_days":days-52}
 def export(d):
     """Day D = [D 00:00, D+1 00:00) Asia/Shanghai.
-    Open feed/sleep started on D with no end_ts: duration assumed to D+1 00:00 for stats only
-    (assumed_end=true, end_assumed=ISO); live textdb NOT modified.
-    Record belongs to D if its start (ts) falls in the window.
+    Include a record if it overlaps the window (sleep/breast: started before D+1 00:00 and
+    ended after D 00:00, or still open and started before D+1 00:00; other types: ts in window).
+    For sleep/breast, duration_min is clipped to the intersection; clip_start/clip_end set.
+    Open feed/sleep: assumed end = D+1 00:00 for day D's portion only (assumed_end, not written to live data).
+    Midnight-crossing sleep/feed is split: pre-midnight minutes on start day, post-midnight on next day.
     """
     R=merged()
     day0=dt.date.fromisoformat(d)
@@ -90,13 +120,12 @@ def export(d):
     we=ws+dt.timedelta(days=1)
     recs=[]
     for r in R:
-        st=_parse(r['ts'])
-        if st is None or not (ws<=st<we): continue
-        recs.append(_annotate(r, day_end=we))
+        if not _overlaps(r, ws, we): continue
+        recs.append(_annotate(r, ws=ws, we=we))
     pick=lambda ts,n:[r for r in R if r['type'] in ts][-n:]
     return {"date":d,"timezone":"Asia/Shanghai",
             "window_start":ws.isoformat(timespec='minutes'),"window_end":we.isoformat(timespec='minutes'),
-            "window_rule":"calendar day [D 00:00, D+1 00:00); include if ts in window; open feed/sleep duration assumed to window_end (assumed_end, not written to live data)",
+            "window_rule":"calendar day [D 00:00, D+1 00:00); include if overlaps window; sleep/breast duration clipped to intersection (clip_start/clip_end); open feed/sleep assumed end=window_end for this day only (assumed_end, not written to live data)",
             "baby":_baby(day0),
             "records":recs,"recent_growth":pick({'growth'},12),"recent_vaccine_checkup_milestone":pick({'vaccine','checkup','milestone'},20)}
 def export_week(sunday):
@@ -108,19 +137,13 @@ def export_week(sunday):
     ws=dt.datetime.combine(mon,dt.time(0,0))
     we=dt.datetime.combine(next_mon,dt.time(0,0))
     R=merged()
-    by_day={}; all_recs=[]
-    for r in R:
-        st=_parse(r['ts'])
-        if st is None or not (ws<=st<we): continue
-        # for open ones that started mid-week and still open: assume end at we for week stats
-        day_end=dt.datetime.combine(st.date()+dt.timedelta(days=1),dt.time(0,0))
-        # if still open and week has ended, also cap at we
-        a=_annotate(r, day_end=min(day_end,we) if (not r.get('end_ts')) else None)
-        # re-annotate properly: if no end and started in week, assume min(own day end, we) — for week totals use we if still open past week
-        if (r['type'] in ('sleep',) or (r['type']=='feed' and r.get('data',{}).get('kind')=='breast')) and not r.get('end_ts') and not r.get('data',{}).get('minutes'):
-            a=_annotate(r, day_end=we)
-        all_recs.append(a)
-        by_day.setdefault(st.date().isoformat(),[]).append(a)
+    # Per-day exports already clip at midnight; flatten for week-level lists
+    day_exports={d:export(d) for d in [(mon+dt.timedelta(days=i)).isoformat() for i in range(7)]}
+    all_recs=[]
+    by_day={}
+    for d,ex in day_exports.items():
+        by_day[d]=ex['records']
+        all_recs.extend(ex['records'])
     growth=[r for r in R if r['type']=='growth' and _parse(r['ts']) and ws<=_parse(r['ts'])<we]
     growth_before=[r for r in R if r['type']=='growth' and _parse(r['ts']) and _parse(r['ts'])<ws]
     first_g=growth[0] if growth else (growth_before[-1] if growth_before else None)
@@ -129,9 +152,9 @@ def export_week(sunday):
         return (r.get('data') or {}).get(k) if r else None
     return {"week_ending":sunday,"week_start":mon.isoformat(),"timezone":"Asia/Shanghai",
             "window_start":ws.isoformat(timespec='minutes'),"window_end":we.isoformat(timespec='minutes'),
-            "window_rule":"week ending Sunday = [Mon 00:00, next Mon 00:00); open feed/sleep duration assumed to window_end for week stats only",
+            "window_rule":"week ending Sunday = [Mon 00:00, next Mon 00:00); per-day midnight-clipped sleep/breast; open feed/sleep assumed end at each day end for that day's portion only",
             "baby":_baby(sun),
-            "days":{d:export(d) for d in [(mon+dt.timedelta(days=i)).isoformat() for i in range(7)]},
+            "days":day_exports,
             "records":all_recs,
             "growth_change":{"first":first_g,"last":last_g,
                 "weight_g":(None if gw(first_g,'weight') is None or gw(last_g,'weight') is None else gw(last_g,'weight')-gw(first_g,'weight')),

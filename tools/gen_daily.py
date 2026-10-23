@@ -11,8 +11,8 @@ def age_line(baby,d):
     day0=dt.date.fromisoformat(d); cw,cd=divmod(max(0,baby['corrected_age_days']),7)
     return f"**{day0.month}月{day0.day}日（周{WD[day0.weekday()]}）** · 出生第{baby['age_days']}天 · 矫正{cw}周+{cd}天"
 def night_min(r):
-    a=dt.datetime.fromisoformat(r['ts'])
-    end=r.get('end_assumed') or r.get('end_ts')
+    a=dt.datetime.fromisoformat(r.get('clip_start') or r['ts'])
+    end=r.get('clip_end') or r.get('end_assumed') or r.get('end_ts')
     if not end: return 0
     b=dt.datetime.fromisoformat(end); total=0; cur=a
     while cur<b:
@@ -67,9 +67,11 @@ def gen(d):
         lines += [f"| 总时长 | 约{hm(smin)}（{len(sleeps)}段{sleep_extra}） |",
                   f"| 夜间 | 约{hm(nmin)} |", f"| 白天 | 约{hm(dmin)} |"]
         longest_s=max(sleeps, key=lambda r:r.get('duration_min') or 0)
-        b=longest_s.get('end_assumed') or longest_s.get('end_ts')
-        bs=(('次日' if b and b[:10]!=longest_s['ts'][:10] else '')+(b[11:16] if b else '未结束'))
-        lines += [f"| 最长一觉 | 约{hm(longest_s.get('duration_min'))}（{longest_s['ts'][11:16]}→{bs}） |",
+        a=longest_s.get('clip_start') or longest_s['ts']
+        b=longest_s.get('clip_end') or longest_s.get('end_assumed') or longest_s.get('end_ts')
+        as_=a[11:16]
+        bs=(('次日' if b and b[:10]!=a[:10] else '')+(b[11:16] if b else '未结束'))
+        lines += [f"| 最长一觉 | 约{hm(longest_s.get('duration_min'))}（{as_}→{bs}） |",
                   f"| 次数 | {len(sleeps)}段"+(f"（含{len(ass_s)}段按24点估算）" if ass_s else "")+" |"]
     else: lines.append("| 总时长 | 未记录 |")
     lines.append('')
