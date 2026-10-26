@@ -173,13 +173,15 @@ function merged(){const m={};for(const k of ["d","m"])for(const r of Object.valu
  for(const r of Object.values(PEND))if(!m[r.id]||r.updated_at>=m[r.id].updated_at)m[r.id]=r;
  return Object.values(m).filter(r=>!r.deleted).sort((a,b)=>b.ts.localeCompare(a.ts))}
 const tf=(u,o={})=>fetch(u,{cache:"no-store",...o,signal:AbortSignal.timeout?AbortSignal.timeout(12000):undefined});
-async function readDoc(key){const r=await tf(RD+key+"?t="+Date.now());if(!r.ok)throw "读取失败";const t=(await r.text()).trim();if(!t)return null;try{return JSON.parse(t)}catch(e){return null}}
+const RAW={};async function readDoc(key){const r=await tf(RD+key+"?t="+Date.now());if(!r.ok)throw "读取失败";const t=(await r.text()).trim();if(!t)return null;RAW[key]=t;try{return JSON.parse(t)}catch(e){return null}}
 async function syncNow(manual){
  if(!KEYS||syncing)return;syncing=true;setSync("同步中…");
  try{
+  const before=[KEYS.d,KEYS.m,KEYS.s].map(k=>RAW[k]).join("\u0001");
   const [d,m,s]=await Promise.all([readDoc(KEYS.d),readDoc(KEYS.m),readDoc(KEYS.s)]);
+  let changed=before!==[KEYS.d,KEYS.m,KEYS.s].map(k=>RAW[k]).join("\u0001");
   if(d)DOCS.d=d;if(m)DOCS.m=m;if(s)SUM=s;
-  if(WHO&&Object.keys(PEND).length){
+  if(WHO&&Object.keys(PEND).length){changed=true;
    const fresh=(await readDoc(KEYS[WHO]))||{v:1,author:WHO_N[WHO],records:{}};fresh.records=fresh.records||{};
    const sent={...PEND};
    for(const r of Object.values(sent)){const o=fresh.records[r.id];if(!o||r.updated_at>=o.updated_at)fresh.records[r.id]=r}
@@ -188,7 +190,7 @@ async function syncNow(manual){
    if(j.status!==1)throw(j.error||"写入失败");
    DOCS[WHO]=fresh;for(const id in sent)if(PEND[id]&&PEND[id].updated_at===sent[id].updated_at)delete PEND[id];
   }
-  lastSync=Date.now();syncErr="";save();render();
+  lastSync=Date.now();syncErr="";if(changed){save();render()}
   if(manual)toast("已同步");
  }catch(e){syncErr=(e&&e.name==="TimeoutError")?"网络超时":(e&&e.message)||String(e);if(manual)toast("同步失败，稍后自动重试")}
  finally{syncing=false;setSync()}
@@ -231,8 +233,23 @@ function itemHtml(r){const t=r.ts.replace("T"," ");return`<div class="item" oncl
 
 // ---- render ----
 let FILT="all";
-function render(){
- const R=merged(),today=nowTs().slice(0,10),a=ages(today);
+let PAGE="home",LIMIT=150,DIRTY={};
+function render(){DIRTY={sum:1,list:1,chart:1,health:1};renderPage()}
+function renderPage(){const R=merged();
+ {const ds=sumDays();$("sumdate").textContent=ds.length?ds[ds.length-1]+" 已生成":"每天早上 8 点生成"}
+ if(PAGE==="sum"&&DIRTY.sum){DIRTY.sum=0;renderSum()}
+ if(PAGE==="list"&&DIRTY.list){DIRTY.list=0;renderList(R)}
+ if(PAGE==="chart"&&DIRTY.chart){DIRTY.chart=0;$("glist").innerHTML=R.filter(r=>r.type==="growth").map(itemHtml).join("");renderChart(R)}
+ if(PAGE==="health"&&DIRTY.health){DIRTY.health=0;$("hlist").innerHTML=R.filter(r=>r.type==="checkup"||r.type==="milestone").map(itemHtml).join("")||'<div class="small">暂无</div>';renderVac(R)}
+ renderHome(R)}
+function renderList(R){
+ $("filt").innerHTML=["all",...Object.keys(TN)].map(k=>`<button class="${FILT===k?"act":""}" onclick="FILT='${k}';LIMIT=150;render()">${k==="all"?"全部":TN[k]}</button>`).join("");
+ const L=R.filter(r=>FILT==="all"||r.type===FILT);const S=dayStatsAll(R);let html="",lastD="";
+ for(const r of L.slice(0,LIMIT)){const d=dayOf(r.ts);if(d!==lastD){html+=`<div class="small" style="margin-top:8px;font-weight:600">${d} · ${S(d)}</div>`;lastD=d}html+=itemHtml(r)}
+ if(L.length>LIMIT)html+=`<div class="acts"><button class="btn ghost" onclick="LIMIT+=300;render()">加载更早的记录（还有 ${L.length-LIMIT} 条）</button></div>`;
+ $("list").innerHTML=html||'<div class="small">暂无</div>'}
+function renderHome(R){
+ const today=nowTs().slice(0,10),a=ages(today);
  $("ageline").textContent=`实际 ${ageText(a.d)}（第${a.d+1}天） · 矫正 ${ageText(a.corr)}`;
  {const G=R.filter(r=>r.type==="growth");const last=k=>G.find(r=>r.data[k]);const st=(k,n,u,f)=>{const r=last(k);return r?`<div class="stat">${n}<b>${f(r.data[k])}${u}</b>${dayOf(r.ts).slice(5)} 测</div>`:""};
   $("ages").innerHTML=(st("weight","体重","",v=>v>=1000?(v/1000).toFixed(2)+"kg":v+"g")+st("length","身长","cm",v=>v)+st("hc","头围","cm",v=>v))||'<div class="stat">还没有身高体重记录<b>点「身高体重」添加</b></div>'}
@@ -241,7 +258,6 @@ function render(){
  const sl=R.filter(r=>r.type==="sleep"&&r.end_ts&&dayOf(r.end_ts)===today).reduce((s,r)=>s+durMin(r.ts,r.end_ts),0);
  const lastFeed=R.find(r=>r.type==="feed");const dp=T.filter(r=>r.type==="diaper").length;
  $("today").innerHTML=`<div class="stat" style="background:#fff1ea">喂奶<b>${feeds.length}次</b>${ml}ml${bm?" · 亲喂"+bm+"分":""}</div><div class="stat" style="background:#eaf2fd">睡眠<b>${hm(sl)}</b>今日已醒来的</div><div class="stat" style="background:#eefaf0">上次喂奶<b>${lastFeed?ago(lastFeed.ts):"—"}</b>${dp?"尿布 "+dp+" 次":""}</div>`;
- {const ds=sumDays();$("sumdate").textContent=ds.length?ds[ds.length-1]+" 已生成":"每天早上 8 点生成";renderSum()}
  $("supps").innerHTML=["AD","D","iron"].map(k=>{const g=T.filter(r=>r.type==="supp"&&r.data.which===k);return g.length?`<button class="on" style="background:#5cb85c;color:#fff" onclick="openDetail('${g[0].id}')"><span>✅</span>${k==="iron"?"铁":k} ${g[g.length-1].ts.slice(11)}</button>`:`<button onclick="quickSupp('${k}')"><span>💊</span>${k==="iron"?"铁":k} 未给</button>`}).join("");
  {const done=new Set(T.filter(r=>r.type==="exercise").flatMap(r=>r.data.items||[EX[r.data.kind]||r.data.name].filter(Boolean)));
   $("exs").innerHTML=EXI.map(n=>done.has(n)?`<button class="act">✓ ${n}</button>`:`<button onclick="quickEx('${n}')">${n}</button>`).join("")+[...done].filter(n=>!EXI.includes(n)).map(n=>`<button class="act">✓ ${esc(n)}</button>`).join("")+`<button onclick="openForm('exercise')">＋ 多项/其他</button>`}
@@ -250,16 +266,11 @@ function render(){
  $("sleepbar").style.display=ongoing?"flex":"none";$("qsleep").classList.toggle("on",!!ongoing);$("qsleep").innerHTML=ongoing?"<span>⏰</span>醒了":"<span>😴</span>开始睡";
  {const of=R.find(feedRunning);$("feedbar").style.display=of?"flex":"none";$("qfeed").classList.toggle("on",!!of);$("qfeed").innerHTML=of?"<span>✅</span>喂完":"<span>🤱</span>开始喂";if(of)$("feeddur").textContent=hm(durMin(of.ts,nowTs()))}
  if(ongoing)$("sleepdur").textContent=hm(durMin(ongoing.ts,nowTs()));
- $("filt").innerHTML=["all",...Object.keys(TN)].map(k=>`<button class="${FILT===k?"act":""}" onclick="FILT='${k}';render()">${k==="all"?"全部":TN[k]}</button>`).join("");
- const L=R.filter(r=>FILT==="all"||r.type===FILT);let html="",lastD="";
- for(const r of L.slice(0,300)){const d=dayOf(r.ts);if(d!==lastD){html+=`<div class="small" style="margin-top:8px;font-weight:600">${d} · ${dayStats(R,d)}</div>`;lastD=d}html+=itemHtml(r)}
- $("list").innerHTML=html||'<div class="small">暂无</div>';
- $("glist").innerHTML=R.filter(r=>r.type==="growth").map(itemHtml).join("");
- $("hlist").innerHTML=R.filter(r=>r.type==="checkup"||r.type==="milestone").map(itemHtml).join("")||'<div class="small">暂无</div>';
- renderVac(R);renderChart(R);
  $("whoseg").innerHTML=["d","m"].map(k=>`<button class="${WHO===k?"act":""}" onclick="setWho('${k}')">${WHO_N[k]}</button>`).join("");
  setSync();
 }
+function dayStatsAll(R){const f={},ml={},sl={};for(const r of R){if(r.type==="feed"){const d=dayOf(r.ts);f[d]=(f[d]||0)+1;ml[d]=(ml[d]||0)+(+r.data.ml||0)}else if(r.type==="sleep"&&r.end_ts){const d=dayOf(r.end_ts);sl[d]=(sl[d]||0)+durMin(r.ts,r.end_ts)}}
+ return d=>`喂奶${f[d]||0}次 ${ml[d]||0}ml · 睡眠${hm(sl[d]||0)}`}
 function dayStats(R,d){const f=R.filter(r=>r.type==="feed"&&dayOf(r.ts)===d);const ml=f.reduce((s,r)=>s+(+r.data.ml||0),0);const sl=R.filter(r=>r.type==="sleep"&&r.end_ts&&dayOf(r.end_ts)===d).reduce((s,r)=>s+durMin(r.ts,r.end_ts),0);return`喂奶${f.length}次 ${ml}ml · 睡眠${hm(sl)}`}
 function ago(ts){const m=durMin(ts,nowTs());return m<60?m+"分钟前":Math.floor(m/60)+"小时"+(m%60)+"分前"}
 function addDays(s,n){const d=parse(s);d.setDate(d.getDate()+n);return fmt(d).slice(0,10)}
@@ -299,7 +310,7 @@ function addMonths(s,m){const d=parse(s);d.setMonth(d.getMonth()+m);return fmt(d
 
 // ---- growth chart ----
 let REF=null,CM="weight",CS=null;
-fetch("ref.json").then(r=>r.json()).then(j=>{REF=j;render()}).catch(()=>{});
+fetch("ref.json").then(r=>r.json()).then(j=>{REF=j;DIRTY.chart=1;renderPage()}).catch(()=>{});
 function renderChart(R){
  if(!REF){$("chart").innerHTML='<div class="small">加载参考数据…</div>';return}
  const a=ages(nowTs().slice(0,10));if(!CS)CS=a.pma<350?"fenton":"who";
@@ -391,7 +402,7 @@ function useLink(){const k=parseLink($("linkin").value.trim());if(!k)return toas
  KEYS={d:k.d,m:k.m,s:k.s};localStorage.setItem("jy_keys",JSON.stringify(KEYS));const r={dad:"d",mom:"m"}[k.r];if(r){WHO=r;localStorage.setItem("jy_who",r)}fixHash();render();syncNow(true)}
 function pickWho(){show("me")}
 function setWho(k){WHO=k;localStorage.setItem("jy_who",k);fixHash();render();toast("本机身份："+WHO_N[k]);syncNow()}
-function show(p){document.querySelectorAll(".page").forEach(e=>e.classList.toggle("act",e.id==="p-"+p));document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("act",b.dataset.p===p));scrollTo(0,0)}
+function show(p){PAGE=p;renderPage();document.querySelectorAll(".page").forEach(e=>e.classList.toggle("act",e.id==="p-"+p));document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("act",b.dataset.p===p));scrollTo(0,0)}
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>show(b.dataset.p));
 const dlg=$("dlg");
 $("modeinfo").textContent=(STANDALONE?"主屏幕应用模式":"浏览器模式")+(WHO?" · 本机："+WHO_N[WHO]:"");
