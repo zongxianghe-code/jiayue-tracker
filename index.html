@@ -71,6 +71,14 @@ svg text{font-size:10px;fill:#8a7a72}
 .vac.late .due{color:#e05a3a;font-weight:600}
 .toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:rgba(50,40,35,.85);color:#fff;padding:8px 16px;border-radius:20px;font-size:14px;display:none;z-index:20}
 .sleepbar{background:#5b9bd5;color:#fff;border-radius:14px;padding:12px;display:none;align-items:center;justify-content:space-between}
+.qitem{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);align-items:flex-start}
+.qitem:last-child{border-bottom:0}
+.qitem.done .qt{text-decoration:line-through;color:var(--sub)}
+.qcheck{width:28px;height:28px;border-radius:8px;border:2px solid #e8d8ce;background:#fff;flex-shrink:0;font-size:16px;line-height:24px;padding:0;color:var(--pri)}
+.qitem.done .qcheck{background:#5cb85c;border-color:#5cb85c;color:#fff}
+.qadd{display:flex;gap:8px;margin-top:8px;align-items:stretch}
+.qadd input{flex:1}
+.qadd .btn{flex:0 0 auto;padding:9px 14px}
 </style></head><body>
 <header><h1>👶 嘉越成长记</h1><div id="sync">…</div></header>
 <div id="nokeys" class="card" style="display:none;margin:12px;border:2px solid #ff8a65"><h2>🔑 请先在Safari打开家庭链接，再添加到主屏幕</h2>
@@ -99,6 +107,7 @@ svg text{font-size:10px;fill:#8a7a72}
   <div class="card"><h2>🤸 今日运动 <span class="small">点一下即记录一项</span></h2><div class="chips" id="exs" style="flex-wrap:wrap"></div></div>
   <div class="card"><h2>📊 今日</h2><div class="row" id="today"></div></div>
   <div class="card" id="sumcard" onclick="show('sum')" style="display:flex;justify-content:space-between;align-items:center"><div>📝 <b>每日小结</b> <span class="small" id="sumdate">每天早上 8 点生成</span></div><span style="color:var(--pri)">查看 ›</span></div>
+  <div class="card" id="qcard" onclick="show('health');setTimeout(()=>{const e=$('qsec');if(e)e.scrollIntoView({behavior:'smooth',block:'start'})},50)" style="display:flex;justify-content:space-between;align-items:center"><div>🗒️ <b>儿保问题</b> <span class="small" id="qcount">记下想问医生的事</span></div><span style="color:var(--pri)">查看 ›</span></div>
   <div class="card"><h2>最近记录</h2><div id="recent"></div></div>
 </section>
 <section class="page" id="p-sum">
@@ -119,6 +128,12 @@ svg text{font-size:10px;fill:#8a7a72}
 </section>
 <section class="page" id="p-health">
   <div class="card"><h2>💉 疫苗（国家免疫规划参考）</h2><div class="small">按实际出生日期计算；早产儿接种时间请以社区医生意见为准（出生体重&lt;2000g 乙肝疫苗程序可能调整）。点击可记录接种。</div><div id="vaclist"></div></div>
+  <div class="card" id="qsec"><h2>🗒️ 儿保问题</h2>
+  <div class="small">随手记下想问儿保医生的问题，见面前一起过一遍。爸爸妈妈都能记，两边会同步。</div>
+  <div class="qadd"><input id="qtext" placeholder="想问医生什么？" maxlength="200" onkeydown="if(event.key==='Enter'){event.preventDefault();addQuestion()}"><button class="btn" type="button" onclick="addQuestion()">添加</button></div>
+  <div class="chips" id="qfilt" style="margin-top:10px"></div>
+  <div id="qlist" style="margin-top:4px"></div>
+  </div>
   <div class="card"><h2>🏥 体检 · 🌟 里程碑</h2><div id="hlist"></div>
   <div class="acts"><button class="btn ghost" onclick="openForm('checkup')">+ 体检</button><button class="btn ghost" onclick="openForm('milestone')">+ 里程碑</button></div></div>
 </section>
@@ -207,8 +222,8 @@ const wkd=n=>Math.floor(n/7)+"周"+(n%7?"+"+(n%7)+"天":"");
 function ageText(days){if(days<0)return"未到预产期（还差"+(-days)+"天）";const m=Math.floor(days/30.4375),r=Math.round(days-m*30.4375);return m?m+"个月"+(r?r+"天":""):days+"天"}
 
 // ---- labels ----
-const TN={growth:"生长",feed:"喂奶",solid:"辅食",sleep:"睡眠",diaper:"尿布",supp:"补剂",exercise:"运动",vaccine:"疫苗",checkup:"体检",milestone:"里程碑"};
-const IC={growth:"📏",feed:"🍼",solid:"🥣",sleep:"😴",diaper:"🧷",supp:"💊",exercise:"🤸",vaccine:"💉",checkup:"🏥",milestone:"🌟"};
+const TN={growth:"生长",feed:"喂奶",solid:"辅食",sleep:"睡眠",diaper:"尿布",supp:"补剂",exercise:"运动",vaccine:"疫苗",checkup:"体检",milestone:"里程碑",question:"儿保问题"};
+const IC={growth:"📏",feed:"🍼",solid:"🥣",sleep:"😴",diaper:"🧷",supp:"💊",exercise:"🤸",vaccine:"💉",checkup:"🏥",milestone:"🌟",question:"🗒️"};
 const FK={breast:"母乳亲喂",bottle_bm:"瓶喂母乳",formula:"配方奶"};
 const SUPP={AD:"维生素AD",D:"维生素D",iron:"铁剂",other:"其他"},SDOSE={AD:"1粒",D:"1粒",iron:"1ml"},EX={tummy:"趴卧",passive:"被动操/抚触",other:"其他"};
 const EXI=["抬头","趴卧","被动操","抚触","蹬腿","追视/追听","翻身练习"];
@@ -226,7 +241,8 @@ function desc(r){const d=r.data||{};switch(r.type){
  case"diaper":return({wet:"小便",dirty:"大便",both:"大小便"}[d.kind]||"")+(d.note?" · "+d.note:"");
  case"vaccine":return(d.name||"")+(d.dose?" 第"+d.dose+"剂":"")+(d.note?" · "+d.note:"");
  case"checkup":return(d.hospital||"")+(d.note?" · "+d.note:"");
- case"milestone":return(d.event||"")+(d.note?" · "+d.note:"");}return""}
+ case"milestone":return(d.event||"")+(d.note?" · "+d.note:"");
+ case"question":return(d.text||"")+(d.status==="done"?"（已问）":"");}return""}
 function feedRunning(r){return r.type==="feed"&&r.data.kind==="breast"&&!r.end_ts&&!r.data.minutes&&!r.data.side}
 function feedMin(r){return r.end_ts?durMin(r.ts,r.end_ts):(+r.data.minutes||0)}
 function itemHtml(r){const t=r.ts.replace("T"," ");return`<div class="item" onclick="openDetail('${r.id}')"><div class="ic">${IC[r.type]}</div><div class="m"><div>${esc(desc(r))}</div><div class="t">${t}<span class="tag ${r.who==="妈妈"?"mom":"dad"}">${esc(r.who||"")}</span></div></div></div>`}
@@ -240,7 +256,7 @@ function renderPage(){const R=merged();
  if(PAGE==="sum"&&DIRTY.sum){DIRTY.sum=0;renderSum()}
  if(PAGE==="list"&&DIRTY.list){DIRTY.list=0;renderList(R)}
  if(PAGE==="chart"&&DIRTY.chart){DIRTY.chart=0;$("glist").innerHTML=R.filter(r=>r.type==="growth").map(itemHtml).join("");renderChart(R)}
- if(PAGE==="health"&&DIRTY.health){DIRTY.health=0;$("hlist").innerHTML=R.filter(r=>r.type==="checkup"||r.type==="milestone").map(itemHtml).join("")||'<div class="small">暂无</div>';renderVac(R)}
+ if(PAGE==="health"&&DIRTY.health){DIRTY.health=0;$("hlist").innerHTML=R.filter(r=>r.type==="checkup"||r.type==="milestone").map(itemHtml).join("")||'<div class="small">暂无</div>';renderVac(R);renderQuestions(R)}
  renderHome(R)}
 function renderList(R){
  $("filt").innerHTML=["all",...Object.keys(TN)].map(k=>`<button class="${FILT===k?"act":""}" onclick="FILT='${k}';LIMIT=150;render()">${k==="all"?"全部":TN[k]}</button>`).join("");
@@ -261,7 +277,8 @@ function renderHome(R){
  $("supps").innerHTML=["AD","D","iron"].map(k=>{const g=T.filter(r=>r.type==="supp"&&r.data.which===k);return g.length?`<button class="on" style="background:#5cb85c;color:#fff" onclick="openDetail('${g[0].id}')"><span>✅</span>${k==="iron"?"铁":k} ${g[g.length-1].ts.slice(11)}</button>`:`<button onclick="quickSupp('${k}')"><span>💊</span>${k==="iron"?"铁":k} 未给</button>`}).join("");
  {const done=new Set(T.filter(r=>r.type==="exercise").flatMap(r=>r.data.items||[EX[r.data.kind]||r.data.name].filter(Boolean)));
   $("exs").innerHTML=EXI.map(n=>done.has(n)?`<button class="act">✓ ${n}</button>`:`<button onclick="quickEx('${n}')">${n}</button>`).join("")+[...done].filter(n=>!EXI.includes(n)).map(n=>`<button class="act">✓ ${esc(n)}</button>`).join("")+`<button onclick="openForm('exercise')">＋ 多项/其他</button>`}
- $("recent").innerHTML=R.slice(0,8).map(itemHtml).join("")||'<div class="small">还没有记录，点上面的按钮开始吧</div>';
+ {const openQ=R.filter(r=>r.type==="question"&&(r.data||{}).status!=="done").length;$("qcount").textContent=openQ?openQ+" 条待问":"记下想问医生的事"}
+ $("recent").innerHTML=R.filter(r=>r.type!=="question").slice(0,8).map(itemHtml).join("")||'<div class="small">还没有记录，点上面的按钮开始吧</div>';
  const ongoing=R.find(r=>r.type==="sleep"&&!r.end_ts);
  $("sleepbar").style.display=ongoing?"flex":"none";$("qsleep").classList.toggle("on",!!ongoing);$("qsleep").innerHTML=ongoing?"<span>⏰</span>醒了":"<span>😴</span>开始睡";
  {const of=R.find(feedRunning);$("feedbar").style.display=of?"flex":"none";$("qfeed").classList.toggle("on",!!of);$("qfeed").innerHTML=of?"<span>✅</span>喂完":"<span>🤱</span>开始喂";if(of)$("feeddur").textContent=hm(durMin(of.ts,nowTs()))}
@@ -338,18 +355,39 @@ function renderChart(R){
 }
 function niceStep(r){const p=Math.pow(10,Math.floor(Math.log10(r))),n=r/p;return(n<1.5?1:n<3?2:n<7?5:10)*p}
 
+// ---- 儿保问题 notepad ----
+let QFILT="open";
+function qStatus(r){return((r.data||{}).status==="done")?"done":"open"}
+function renderQuestions(R){
+ const Q=R.filter(r=>r.type==="question");
+ const open=Q.filter(r=>qStatus(r)==="open"),done=Q.filter(r=>qStatus(r)==="done");
+ $("qfilt").innerHTML=[["open","待问 "+open.length],["done","已问 "+done.length],["all","全部 "+Q.length]].map(([k,n])=>`<button class="${QFILT===k?"act":""}" onclick="QFILT='${k}';DIRTY.health=1;renderPage()">${n}</button>`).join("");
+ const L=QFILT==="open"?open:QFILT==="done"?done:Q;
+ // open: newest first already; keep open sorted by ts desc (merged default)
+ let html="";
+ for(const r of L){const done=qStatus(r)==="done";const t=r.ts.replace("T"," ");
+  html+=`<div class="qitem ${done?"done":""}"><button type="button" class="qcheck" onclick="event.stopPropagation();toggleQuestion('${r.id}')" title="${done?"标为待问":"标为已问"}">${done?"✓":""}</button><div class="m" style="flex:1;cursor:pointer" onclick="openDetail('${r.id}')"><div class="qt">${esc((r.data||{}).text||"（空）")}</div><div class="t">${t}<span class="tag ${r.who==="妈妈"?"mom":"dad"}">${esc(r.who||"")}</span></div></div></div>`}
+ $("qlist").innerHTML=html||`<div class="small" style="padding:8px 0">${QFILT==="done"?"还没有已问过的":"还没有问题，上面输入后点添加"}</div>`;
+}
+function addQuestion(){const t=( $("qtext")&&$("qtext").value||"").trim();if(!t)return toast("请先输入问题");
+ if(put(newRec("question",{text:t,status:"open"}))){if($("qtext"))$("qtext").value="";toast("已记下");QFILT="open";show("health")}}
+function toggleQuestion(id){const r=merged().find(x=>x.id===id);if(!r)return;
+ const next=qStatus(r)==="done"?"open":"done";
+ if(put({...r,data:{...r.data,status:next}}))toast(next==="done"?"已标为已问":"已标回待问")}
+
 // ---- forms ----
 let F={};
 function seg(name,opts,val){return`<div class="seg" data-seg="${name}">${opts.map(([v,n])=>`<button type="button" data-v="${v}" class="${val==v?"act":""}">${n}</button>`).join("")}</div>`}
-const FL={weight:"体重(g)",length:"身长(cm)",hc:"头围(cm)",kind:"方式/类型",side:"哪侧",minutes:"时长(分钟)",ml:"奶量(ml)",food:"食物",amount:"量",reaction:"反应",name:"名称",dose:"剂量",hospital:"医院",event:"事件",which:"补剂",items:"项目",note:"备注"};
-function fv(r,k,v){const t=r.type;if(k==="kind")return t==="feed"?FK[v]:t==="diaper"?{wet:"小便",dirty:"大便",both:"大小便"}[v]:t==="exercise"?EX[v]:v;if(k==="side")return SIDE[v];if(k==="which")return SUPP[v];if(Array.isArray(v))return v.join("、");return v}
+const FL={weight:"体重(g)",length:"身长(cm)",hc:"头围(cm)",kind:"方式/类型",side:"哪侧",minutes:"时长(分钟)",ml:"奶量(ml)",food:"食物",amount:"量",reaction:"反应",name:"名称",dose:"剂量",hospital:"医院",event:"事件",which:"补剂",items:"项目",text:"问题",status:"状态",note:"备注"};
+function fv(r,k,v){const t=r.type;if(k==="kind")return t==="feed"?FK[v]:t==="diaper"?{wet:"小便",dirty:"大便",both:"大小便"}[v]:t==="exercise"?EX[v]:v;if(k==="side")return SIDE[v];if(k==="which")return SUPP[v];if(k==="status")return v==="done"?"已问":"待问";if(Array.isArray(v))return v.join("、");return v}
 function openDetail(id){const r=merged().find(x=>x.id===id);if(!r)return;const tm=x=>new Date(x).toLocaleString("zh-CN",{hour12:false});
  let rows=`<div>类型</div><div>${IC[r.type]} ${TN[r.type]}</div><div>${r.type==="sleep"?"入睡":"时间"}</div><div>${r.ts.replace("T"," ")}</div>`;
  if(r.type==="feed"&&r.data.kind==="breast")rows+=r.end_ts?`<div>结束</div><div>${r.end_ts.replace("T"," ")}</div><div>时长</div><div>${hm(durMin(r.ts,r.end_ts))}</div>`:feedRunning(r)?`<div>结束</div><div>正在喂（已 ${hm(durMin(r.ts,nowTs()))}）</div>`:"";
  if(r.type==="sleep")rows+=`<div>醒来</div><div>${r.end_ts?r.end_ts.replace("T"," ")+"（"+hm(durMin(r.ts,r.end_ts))+"）":"还在睡"}</div>`;
  for(const[k,v]of Object.entries(r.data||{}))if(v!==""&&v!=null)rows+=`<div>${FL[k]||k}</div><div>${esc(fv(r,k,v))}</div>`;
  rows+=`<div>记录人</div><div>${esc(r.who||"")}${r.created_at?" · "+tm(r.created_at):""}</div>`;if(r.updated_at&&r.updated_at!==r.created_at)rows+=`<div>最后修改</div><div>${esc(r.by||r.who||"")} · ${tm(r.updated_at)}</div>`;
- $("form").innerHTML=`<h3>${IC[r.type]} ${esc(desc(r))}</h3><div class="det">${rows}</div><div class="acts"><button class="btn red" type="button" onclick="F={rec:merged().find(x=>x.id==='${id}')};delRec()">删除</button><button class="btn ghost" type="button" onclick="dlg.close()">关闭</button><button class="btn" type="button" onclick="dlg.close();openForm('${r.type}','${id}')">修改</button></div>`;$("dlg").showModal()}
+ const qbtn=r.type==="question"?`<button class="btn ghost" type="button" onclick="dlg.close();toggleQuestion('${id}')">${qStatus(r)==="done"?"标回待问":"标为已问"}</button>`:"";
+ $("form").innerHTML=`<h3>${IC[r.type]} ${esc(desc(r))}</h3><div class="det">${rows}</div><div class="acts"><button class="btn red" type="button" onclick="F={rec:merged().find(x=>x.id==='${id}')};delRec()">删除</button>${qbtn}<button class="btn ghost" type="button" onclick="dlg.close()">关闭</button><button class="btn" type="button" onclick="dlg.close();openForm('${r.type}','${id}')">修改</button></div>`;$("dlg").showModal()}
 function openAdd(){const f=$("form");f.innerHTML=`<h3>添加记录</h3><div class="qa">${Object.keys(TN).map(k=>`<button type="button" onclick="openForm('${k}')"><span>${IC[k]}</span>${TN[k]}</button>`).join("")}</div><div class="acts"><button class="btn ghost" onclick="dlg.close()">取消</button></div>`;$("dlg").showModal()}
 function quickSupp(k){const dose=localStorage.getItem("jy_dose_"+k)||SDOSE[k];if(put(newRec("supp",{which:k,dose})))toast("已记录 "+SUPP[k]+" "+dose)}
 function quickEx(n){if(put(newRec("exercise",{items:[n]})))toast("已记录：" + n)}
@@ -369,7 +407,8 @@ function openForm(type,id,preset){
  if(type==="vaccine")b=`<label>疫苗名称</label><input id="f_name" value="${esc(d.name)}" list="vl"><datalist id="vl">${[...new Set(VAC.map(v=>v[0]))].map(n=>`<option value="${n}">`).join("")}</datalist><label>第几剂</label><input id="f_dose" inputmode="numeric" value="${esc(d.dose)}">`;
  if(type==="checkup")b=`<label>医院/机构</label><input id="f_hospital" value="${esc(d.hospital)}">`;
  if(type==="milestone")b=`<label>事件</label><input id="f_event" value="${esc(d.event)}" list="ml"><datalist id="ml">${["第一次笑","抬头","翻身","独坐","爬","站立","走路","第一次叫爸爸","第一次叫妈妈","长牙"].map(n=>`<option value="${n}">`).join("")}</datalist>`;
- const tl=type==="sleep"?"入睡时间":type==="feed"?"时间（亲喂为开始时间）":type==="vaccine"||type==="checkup"||type==="milestone"?"日期":"时间";
+ if(type==="question")b=`<label>问题</label><textarea id="f_text" placeholder="想问儿保医生什么？">${esc(d.text||"")}</textarea><label>状态</label>${seg("status",[["open","待问"],["done","已问"]],d.status||"open")}`;
+ const tl=type==="sleep"?"入睡时间":type==="feed"?"时间（亲喂为开始时间）":type==="vaccine"||type==="checkup"||type==="milestone"||type==="question"?"日期":"时间";
  const f=$("form");if(!TN[type])return;f.innerHTML=`<h3>${IC[type]} ${rec?"编辑":"添加"}${TN[type]}</h3><label>${tl}</label><input id="f_ts" type="datetime-local" value="${ts}">${b}<label>备注</label><textarea id="f_note">${esc(type==="growth"||type==="vaccine"||type==="checkup"||type==="milestone"||type==="feed"||type==="diaper"?d.note:d.note)}</textarea>
  ${rec?`<div class="small" style="margin-top:6px">由${esc(rec.who)}记录${rec.by&&rec.by!==rec.who?"，"+esc(rec.by)+"修改":""}</div>`:""}
  <div class="acts">${rec?'<button class="btn red" type="button" onclick="delRec()">删除</button>':""}<button class="btn ghost" type="button" onclick="dlg.close()">取消</button><button class="btn" type="button" onclick="saveForm()">保存</button></div>`;
@@ -391,6 +430,7 @@ function saveForm(){const t=F.type,ts=v("f_ts");if(!ts)return toast("请填写�
  if(t==="vaccine"){d.name=v("f_name");if(!d.name)return toast("请填写疫苗名称");if(v("f_dose"))d.dose=+v("f_dose")}
  if(t==="checkup")d.hospital=v("f_hospital");
  if(t==="milestone"){d.event=v("f_event");if(!d.event)return toast("请填写事件")}
+ if(t==="question"){d.text=v("f_text");if(!d.text)return toast("请填写问题");d.status=F.seg.status||"open"}
  const r=F.rec?{...F.rec,ts,end_ts:end,data:d}:newRec(t,d,ts,end);
  if(put(r)){$("dlg").close();toast("已保存")}}
 function delRec(){if(!confirm("确定删除这条记录？"))return;if(put({...F.rec,deleted:true})){$("dlg").close();toast("已删除")}}

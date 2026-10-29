@@ -120,6 +120,7 @@ def export(d):
     we=ws+dt.timedelta(days=1)
     recs=[]
     for r in R:
+        if r.get('type')=='question': continue  # 儿保问题 notepad — not part of daily summary
         if not _overlaps(r, ws, we): continue
         recs.append(_annotate(r, ws=ws, we=we))
     pick=lambda ts,n:[r for r in R if r['type'] in ts][-n:]
